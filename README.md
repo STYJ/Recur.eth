@@ -1,6 +1,6 @@
-# Trickle
+# Recur.eth
 
-Streaming payments on Ethereum
+Recurring purchase of tokens on Ethereum in a permissionless manner. 
 
 ## Installation
 
