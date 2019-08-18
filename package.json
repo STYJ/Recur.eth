@@ -1,0 +1,27 @@
+{
+  "name": "Recur.eth",
+  "version": "1.0.0",
+  "description": "Recurring purchase of tokens on Ethereum in a permissionless manner.",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/STYJ/Recur.eth.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/STYJ/Recur.eth/issues"
+  },
+  "homepage": "https://github.com/STYJ/Recur.eth#readme",
+  "dependencies": {
+    "dotenv": "^8.1.0",
+    "truffle-hdwallet-provider": "^1.0.16"
+  }
+}
