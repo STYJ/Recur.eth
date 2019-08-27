@@ -7,8 +7,8 @@ import "../openzeppelin-contracts/contracts/token/ERC20/ERC20Mintable.sol";
 // constructors are executed in the following order:
 // 1. ERC20Detailed
 // 2. ERC20Mintable
-// 3. MockToken
-contract Zilliqa is ERC20Detailed, ERC20Mintable {
+// 3. Mana
+contract Mana is ERC20Detailed, ERC20Mintable {
 
     // Functions
     /**
