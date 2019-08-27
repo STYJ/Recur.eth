@@ -8,7 +8,7 @@ import "../openzeppelin-contracts/contracts/token/ERC20/ERC20Mintable.sol";
 // 1. ERC20Detailed
 // 2. ERC20Mintable
 // 3. KyberNetworkCrystal
-contract MockToken is ERC20Detailed, ERC20Mintable {
+contract KyberNetworkCrystal is ERC20Detailed, ERC20Mintable {
 
     // Functions
     /**
