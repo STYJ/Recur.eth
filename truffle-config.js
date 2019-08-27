@@ -1,3 +1,4 @@
+// jshint esversion: 8
 const HDWalletProvider = require('truffle-hdwallet-provider');
 const path = require("path");
 
