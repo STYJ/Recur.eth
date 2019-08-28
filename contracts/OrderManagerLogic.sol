@@ -1,4 +1,4 @@
-/* pragma solidity ^0.5.10;
+pragma solidity ^0.5.10;
 
 import "./kyber-mock-contracts/KyberNetworkProxyInterface.sol";
 import "./kyber-mock-contracts/Withdrawable.sol";
@@ -197,4 +197,4 @@ contract OrderManagerLogic is Withdrawable {
     }
 
 
-} */
+}
