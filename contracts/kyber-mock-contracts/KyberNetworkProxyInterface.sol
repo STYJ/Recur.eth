@@ -6,7 +6,6 @@ import "../openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 interface KyberNetworkProxyInterface {
     function tradeWithHint(IERC20 src, uint srcAmount, IERC20 dest, address payable destAddress, uint maxDestAmount,
         uint minConversionRate, address walletId, bytes calldata hint) external payable returns(uint);
-
     function maxGasPrice() external view returns(uint);
     function getUserCapInWei(address user) external view returns(uint);
     function getUserCapInTokenWei(address user, IERC20 token) external view returns(uint);
