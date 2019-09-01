@@ -6,59 +6,74 @@ import "./openzeppelin-contracts/contracts/token/ERC20/SafeERC20.sol";
 import "./openzeppelin-contracts/contracts/math/SafeMath.sol";
 
 contract OrderManagerLogic is Withdrawable {
-    // Directives
+    /********************************************************/
+    /* OrderManagerLogic constants, variables and functions */
+    /********************************************************/
+
+    /* Directives */
     using SafeERC20 for ERC20;
     using SafeMath for uint;
 
-    // Constants
-
-
     /* Order struct */
     struct Order {
-        uint orderId;                           // Unique identifier of order
-        address creator;                        // Address of creator of order
-        address recipient;                      // Address of receipient of order
-        ERC20 src;                              // Source token address
-        ERC20 dest;                             // Destination token address
-        uint srcQty;                            // Src quantity per trade
-        uint b                           ;                         // Number of orders
-        uint minBlockInterval;                  // Minimum block nterval between orders
-        uint lastBlock;                         // Last block when an order was taken
-        uint maxGasPrice;                       // Max gas price of an order
-    }vn
+        uint orderId;                                   // Unique identifier of Order
+        address creator;                                // Address of creator of order
+        address recipient;                              // Address of recipient of order
+        ERC20 srcToken;                                 // Source token address
+        ERC20 destToken;                                // Destination token address
+        uint srcQty;                                    // Src quantity per trade
+        uint numTrades;                                 // Number of trades
+        uint minBlockInterval;                          // Minimum block interval between trades
+        uint lastBlockNumber;                           // Block number of last successful trade
+        uint maxGasPrice;                               // Max gas price of a trade
+        bool active;                                    // If order is still active
+    }
 
     /* Variables */
-    uint totalGasCosts;                         // Total gas used by all orders to date
-    uint numPurchases;                          // Number of purchases completed to date
-    Order[] orders; // All orders in existence
-    uint numOrders; // Identifier for each order (increment only)
-    mapping(address => Order[]) myOrders; // Orders where msg.sender is sender
-    mapping(address => uint256) myOrdersCount; // Number of orders belonging to msg.sender
-    mapping(uint256 => uint256) myOrdersIndex; // Mapping from orderId to index in myOrders array
-    mapping(uint256 => address) orderOwner; // Mapping from orderId to sender
-    mapping(address => uint256) gasBalances; // Mapping from sender to gasBalance (shared balance between all orders)
+    uint internal totalGasCosts;                        // Total gas used by all orders to date
+    uint internal numTrades;                            // Number of trades completed to date
+    Order[] public allOrders;                           // All orders in existence
+    uint public numOrdersCreated;                       // Identifier for each order (increment only)
+    mapping(address => Order[]) public myOrders;        // Orders where msg.sender is sender
+    mapping(address => uint256) public myOrdersCount;   // Number of orders belonging to msg.sender
+    mapping(uint256 => uint256) public myOrdersIndex;   // Mapping from orderId to index in myOrders array
+    mapping(uint256 => address) public orderOwner;      // Mapping from orderId to sender
+    mapping(address => uint256) public gasBalances;     // Mapping from sender to gasBalance (shared balance between all orders)
 
-    // Events
+    /* Events */
     event OrderCreated(
-        uint indexed orderId;
-        address indexed sender;
+        uint indexed orderId,
+        address indexed sender
     );
 
-    event OrderUpdated()
+    event OrderUpdated(uint indexed orderId);
 
-    event OrderCancelled(
-        uint indexed orderId;
-        address indexed sender;
+    event OrderReactivated(
+        uint indexed orderId,
+        address indexed sender
+    );
+
+    event OrderDeactivated(
+        uint indexed orderId,
+        address indexed sender
     );
 
     event OrderTaken(
-        uint indexed orderId;
-        address indexed sender;
-
+        uint indexed orderId,
+        address indexed sender
     );
 
+    /* Modifiers */
+    modifier onlyOrderOwner(uint orderId) { // Modifier
+        require(
+            msg.sender == orderOwner[orderId],
+            "Only owner of the order can call this."
+        );
+        _;
+    }
 
-    // Functions
+
+    /* Functions */
     /**
      * @dev Contract constructor
      * @param _kyberNetworkProxyContract KyberNetworkProxy contract address
@@ -70,25 +85,172 @@ contract OrderManagerLogic is Withdrawable {
     ) public Withdrawable(_admin) {
         require(_admin != address(0));
         require(address(_kyberNetworkProxyContract) != address(0));
-
         kyberNetworkProxyContract = _kyberNetworkProxyContract;
     }
+
+    function createOrder(
+        address _recipient,
+        ERC20 _srcToken,
+        ERC20 _destToken,
+        uint _srcQty,
+        uint _frequency,
+        uint _minBlockInterval,
+        uint _maxGasPrice
+    ) public returns (uint) {
+        require(_recipient != address(0), "Recipient cannot be the null address");
+        require(address(_srcToken) != address(0), "SrcToken cannot be the null address");
+        require(address(_destToken) != address(0), "Dest  cannot be the null address");
+        require(_srcQty > 0, "SrcQty is too low.");
+        require(_frequency > 0, "Trade frequency is too low.");
+        require(_minBlockInterval > 0, "Min number of blocks between trades is too low.");
+        require(_maxGasPrice > 0, "Max gas price is too low.");
+
+        Order memory newOrder = Order(
+            numOrdersCreated,
+            msg.sender,
+            _recipient,
+            _srcToken,
+            _destToken,
+            _srcQty,
+            _frequency,
+            _minBlockInterval,
+            block.number,
+            _maxGasPrice,
+            true
+        );
+
+        // Add newOrder into allOrders
+        allOrders.push(newOrder);
+
+        // Add newOrder into  myOrders
+        myOrders[msg.sender].push(newOrder);
+
+        // Track index of newOrder in myOrders array
+        myOrdersIndex[numOrdersCreated] = myOrdersCount[msg.sender];
+
+        // Incrementing my number of orders
+        myOrdersCount[msg.sender] ++;
+
+        // Tracking owner of order
+        orderOwner[numOrdersCreated] = msg.sender;
+
+        // Incrementing number of orders
+        numOrdersCreated ++;
+
+        // Log the order creation event
+        emit OrderCreated(numOrdersCreated.sub(1), msg.sender);
+    }
+
+    function triggerTrade(uint _orderId) public {
+        // Check that order is still active
+        Order memory order = allOrders[_orderId];
+        require(order.active, "Order is inactive.");
+
+        // Check that allowance is sufficient
+        require(order.srcToken.allowance(
+            msg.sender, address(this)) > order.srcQty,
+            "Insufficient token allowance"
+        );
+
+        // Check min block interval has passed
+        require(
+            order.lastBlockNumber.add(order.minBlockInterval) >= block.number,
+            "Min block interval has not passed"
+        );
+
+        // Normally you'd do an action here but for this, I will just try to transfer some tokens
+        order.srcToken.safeTransferFrom(msg.sender, address(this), order.srcQty);
+
+
+    }
+
+    function updateOrder(
+        uint _orderId,
+        address _recipient,
+        ERC20 _srcToken,
+        ERC20 _destToken,
+        uint _srcQty,
+        uint _frequency,
+        uint _minBlockInterval,
+        uint _maxGasPrice
+    ) public onlyOrderOwner(_orderId) {
+        require(_recipient != address(0), "Recipient cannot be the null address");
+        require(_srcQty > 0, "SrcQty is too low.");
+        require(_frequency > 0, "Trade frequency is too low.");
+        require(_minBlockInterval > 0, "Min number of blocks between trades is too low.");
+        require(_maxGasPrice > 0, "Max gas price is too low.");
+
+        Order memory newOrder = Order(
+            _orderId,
+            msg.sender,
+            _recipient,
+            _srcToken,
+            _destToken,
+            _srcQty,
+            _frequency,
+            _minBlockInterval,
+            0,
+            _maxGasPrice,
+            true
+        );
+
+        // Replace old order with newOrder in allOrders
+        allOrders[_orderId] = newOrder;
+
+        // Get index of order in myOrders
+        uint index = myOrdersIndex[_orderId];
+
+        // Replace old order with newOrder in myOrders
+        myOrders[msg.sender][index] = newOrder;
+
+        // Log the order updated event
+        emit OrderUpdated(_orderId);
+    }
+
+    function reactivateOrder(uint _orderId) public onlyOrderOwner(_orderId) {
+        // Reactivate order from allOrders
+        allOrders[_orderId].active = true;
+
+        // Get index of order in myOrders
+        uint index = myOrdersIndex[_orderId];
+
+        // Reactivate order in myOrders
+        myOrders[msg.sender][index].active = true;
+
+        // Log the order reactivation event
+        emit OrderReactivated(_orderId, msg.sender);
+    }
+
+    function deactivateOrder(uint _orderId) public onlyOrderOwner(_orderId) {
+        // Deactivate order from allOrders
+        allOrders[_orderId].active = false;
+
+        // Get index of order in myOrders
+        uint index = myOrdersIndex[_orderId];
+
+        // Deactivate order in myOrders
+        myOrders[msg.sender][index].active = false;
+
+        // Log the order deactivation event
+        emit OrderDeactivated(_orderId, msg.sender);
+    }
+
 
     /********************************************************/
     /* KyberNetworkProxy constants, variables and functions */
     /********************************************************/
 
-    // Constants
+    /* Constants */
     ERC20 constant internal ETH_TOKEN_ADDRESS = ERC20(0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee);
     uint constant internal MAX_QTY = 10**28;
     address constant internal WALLET_ID = address(0);
     bytes constant constant HINT = "";
 
-    // Variables
-    KyberNetworkProxyInterface public kyberNetworkProxyContract; // KyberNetworkProxy contract
+    /* Variables */
+   KyberNetworkProxyInterface public kyberNetworkProxyContract; // KyberNetworkProxy contract
 
-    // Events
-    event Swap(
+    /* Events */
+    event Trade(
         address indexed sender,
         address indexed recipient,
         ERC20 srcToken,
@@ -97,6 +259,7 @@ contract OrderManagerLogic is Withdrawable {
         uint destQty
     );
 
+    /* Functions */
     /**
      * @dev Swap the user's ERC20 token to another ERC20 token / ETH
      * @param _srcToken source token contract address
@@ -143,7 +306,7 @@ contract OrderManagerLogic is Withdrawable {
         );
 
         // Log the event
-        emit Swap(msg.sender, _destAddress, _srcToken, _destToken, _srcQty, destQty);
+        emit Trade(msg.sender, _destAddress, _srcToken, _destToken, _srcQty, destQty);
     }
 
     /**
@@ -154,7 +317,8 @@ contract OrderManagerLogic is Withdrawable {
     function swapEthToToken(
         ERC20 _destToken,
         address payable _destAddress
-    ) internal payable {
+    ) internal {
+        require(msg.value != 0, "Transaction has no Eth");
         uint minConversionRate;
         uint destQty;
 
@@ -178,7 +342,7 @@ contract OrderManagerLogic is Withdrawable {
         );
 
         // Log the event
-        emit Swap(msg.sender, _destAddress, ETH_TOKEN_ADDRESS, _destToken, msg.value, destQty);
+        emit Trade(msg.sender, _destAddress, ETH_TOKEN_ADDRESS, _destToken, msg.value, destQty);
     }
 
     /**
@@ -221,6 +385,8 @@ contract OrderManagerLogic is Withdrawable {
         );
 
         // Log the event
-        emit Swap(msg.sender, _destAddress, _srcToken, ETH_TOKEN_ADDRESS, _srcQty, destQty);
+        emit Trade(msg.sender, _destAddress, _srcToken, ETH_TOKEN_ADDRESS, _srcQty, destQty);
     }
+
+
 }
