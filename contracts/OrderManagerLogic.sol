@@ -106,17 +106,17 @@ contract OrderManagerLogic is Withdrawable {
         require(_maxGasPrice > 0, "Max gas price is too low.");
 
         Order memory newOrder = Order(
-            numOrdersCreated,
-            msg.sender,
-            _recipient,
-            _srcToken,
-            _destToken,
-            _srcQty,
-            _frequency,
-            _minBlockInterval,
-            block.number,
-            _maxGasPrice,
-            true
+            numOrdersCreated,                           // orderId
+            msg.sender,                                 // creator
+            _recipient,                                 // recipient
+            _srcToken,                                  // srcToken
+            _destToken,                                 // destToken
+            _srcQty,                                    // srcQty
+            _frequency,                                 // frequency
+            _minBlockInterval,                          // minBlockInterval
+            block.number,                               // lastBlockNumber
+            _maxGasPrice,                               // maxGasPrice
+            true                                        // active
         );
 
         // Add newOrder into allOrders
@@ -137,8 +137,13 @@ contract OrderManagerLogic is Withdrawable {
         // Incrementing number of orders
         numOrdersCreated ++;
 
+        // Need to also add any msg.value as gas balance.
+
         // Log the order creation event
         emit OrderCreated(numOrdersCreated.sub(1), msg.sender);
+
+        // Return the orderId
+        return numOrdersCreated.sub(1);
     }
 
     function triggerTrade(uint _orderId) public {
@@ -148,15 +153,19 @@ contract OrderManagerLogic is Withdrawable {
 
         // Check that allowance is sufficient
         require(order.srcToken.allowance(
-            msg.sender, address(this)) > order.srcQty,
+            order.creator, address(this)) > order.srcQty,
             "Insufficient token allowance"
         );
 
         // Check min block interval has passed
         require(
-            order.lastBlockNumber.add(order.minBlockInterval) >= block.number,
+            order.lastBlockNumber.add(order.minBlockInterval) > block.number,
             "Min block interval has not passed"
         );
+
+        // Check that there's sufficient gas balance
+
+        // Reduce frequency n stuff
 
         // Normally you'd do an action here but for this, I will just try to transfer some tokens
         order.srcToken.safeTransferFrom(msg.sender, address(this), order.srcQty);
@@ -234,6 +243,8 @@ contract OrderManagerLogic is Withdrawable {
         // Log the order deactivation event
         emit OrderDeactivated(_orderId, msg.sender);
     }
+
+    // Create a function to add gas
 
 
     /********************************************************/

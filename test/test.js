@@ -10,38 +10,119 @@ const OrderManagerLogic = artifacts.require("OrderManagerLogic.sol");
 const Token = artifacts.require("Token.sol");
 
 function stdlog(input) {
-  console.log(`${moment().format('YYYY-MM-DD HH:mm:ss.SSS')}] ${input}`);
+    console.log(`${moment().format('DD-MM-YY HH:mm:ss:SSS')}] ${input}`);
 }
 
 function tx(result, call) {
-  const logs = result.logs.length > 0 ? result.logs[0] : { address: null, event: null };
+    const logs = result.logs.length > 0 ? result.logs[0] : { address: null, event: null };
 
-  console.log();
-  console.log(`   ${call}`);
-  console.log('   ------------------------');
-  console.log(`   > transaction hash: ${result.tx}`);
-  console.log(`   > contract address: ${logs.address}`);
-  console.log(`   > gas used: ${result.receipt.gasUsed}`);
-  console.log(`   > event: ${logs.event}`);
-  console.log();
+    console.log();
+    console.log(`   ${call}`);
+    console.log('   ------------------------');
+    console.log(`   > transaction hash: ${result.tx}`);
+    console.log(`   > contract address: ${logs.address}`);
+    console.log(`   > gas used: ${result.receipt.gasUsed}`);
+    console.log(`   > event: ${logs.event}`);
+    console.log();
 }
 
 module.exports = async (callback) => {
-  const accounts = web3.eth.accounts._provider.addresses;
-  const admin = accounts[0];
-  const userA = accounts[1];
-  const userB = accounts[2];
+    const accounts = web3.eth.accounts._provider.addresses;
+    const admin = accounts[0];
+    const userA = accounts[1];
+    const userB = accounts[2];
 
-  // Getting instances
-  const OMLInstance = await OrderManagerLogic.at(OrderManagerLogic.address);
-  const TokenInstance = await Token.at(Token.address);
+    // Getting instances
+    const OMLInstance = await OrderManagerLogic.at(OrderManagerLogic.address);
+    const TokenInstance = await Token.at(Token.address);
 
-  stdlog('- START -');
-  stdlog(`OrderManagerLogic (${OMLInstance.address})`);
+    stdlog('- START -');
+    stdlog(`OrderManagerLogic (${OMLInstance.address})`);
 
-  stdlog(
-    `${await TokenInstance.name()} balance of ${admin} = ${await TokenInstance.balanceOf(admin)}`,
-  );
+    stdlog(`- Token balances init -`)
+    stdlog(
+        `${await TokenInstance.name()} balance of ${admin} = ${await TokenInstance.balanceOf(admin)}`,
+    );
+    stdlog(
+        `${await TokenInstance.name()} balance of ${userA} = ${await TokenInstance.balanceOf(userA)}`,
+    );
+    stdlog(
+        `${await TokenInstance.name()} balance of ${userB} = ${await TokenInstance.balanceOf(userB)}`,
+    );
+
+    stdlog(`- Transferring 1m ${await TokenInstance.name()} from ${admin} to ${userA} -`);
+    var result = await TokenInstance.transfer(
+        userA,
+        new BN(10).pow(new BN(24)),
+        { from: admin }
+    );
+    tx(result, "Transfer Tokens")
+
+    stdlog(`- Token balances before -`)
+    stdlog(
+        `${await TokenInstance.name()} balance of ${admin} = ${await TokenInstance.balanceOf(admin)}`,
+    );
+    stdlog(
+        `${await TokenInstance.name()} balance of ${userA} = ${await TokenInstance.balanceOf(userA)}`,
+    );
+    stdlog(
+        `${await TokenInstance.name()} balance of ${userB} = ${await TokenInstance.balanceOf(userB)}`,
+    );
+
+    stdlog(`- Creating Order for ${userA} -`);
+    result = await OMLInstance.createOrder(
+        userB,                                              // recipient
+        TokenInstance.address,                              // srcToken
+        TokenInstance.address,                              // destToken
+        new BN(10).pow(new BN(21)),                         // srcQty = 10**21
+        10,                                                 // frequency
+        1,                                                  // minBlockInterval
+        13,                                                 // maxGasPrice
+        { from: userA }
+    )
+    var id = result.logs[0].args[0].toString();
+    tx(result, "Order Creation");
+
+    // // Deactivate order
+    // var id = result.logs[0].args[0].toString();
+    // result = await OMLInstance.deactivateOrder(id, {from: userA});
+    // tx(result, "Deactivating Order To Test Require");
+    //
+    // // Try to triggerTrade
+    // result = await OMLInstance.triggerTrade(id, {from: admin});
+    // tx(result, "Trigger Trade failed cause order is deactivated");
+    //
+    // // Activate order
+    // result = await OMLInstance.reactivateOrder(id, {from: userA});
+    // tx(result, "Reactivating Order To Test Require");
+    //
+    // // Check allowance is sufficient
+
+    stdlog(`- Approving TokenInstance Contract to spend frequency * srcQty tokens -`)
+    var result = await TokenInstance.approve(
+        OMLInstance.address,                                // Spender
+        new BN(10).pow(new BN(22)),                         // Allowance = frequency * srcQty
+        { from: userA }
+    );
+    tx(result, "Approve TokenInstance");
+
+    stdlog(`- Triggering trade to transfer some tokens to recipient -`)
+    result = await OMLInstance.triggerTrade(id, {from: admin});
+    tx(result, "Trigger Trade")
+    stdlog(`- Token balances after -`)
+    stdlog(
+        `${await TokenInstance.name()} balance of ${admin} = ${await TokenInstance.balanceOf(admin)}`,
+    );
+    stdlog(
+        `${await TokenInstance.name()} balance of ${userA} = ${await TokenInstance.balanceOf(userA)}`,
+    );
+    stdlog(
+        `${await TokenInstance.name()} balance of ${userB} = ${await TokenInstance.balanceOf(userB)}`,
+    );
+
+
+
+
   // stdlog(
   //   `KNC balance of ${userWallet} = ${web3.utils.fromWei(await KNCInstance.balanceOf(userWallet))}`,
   // );
