@@ -139,6 +139,7 @@ contract OrderManagerLogic is Withdrawable {
 
         // Need to also add any msg.value as gas balance.
 
+
         // Log the order creation event
         emit OrderCreated(numOrdersCreated.sub(1), msg.sender);
 
@@ -165,7 +166,9 @@ contract OrderManagerLogic is Withdrawable {
 
         // Check that there's sufficient gas balance
 
+
         // Reduce frequency n stuff
+        
 
         // Normally you'd do an action here but for this, I will just try to transfer some tokens
         order.srcToken.safeTransferFrom(msg.sender, address(this), order.srcQty);
