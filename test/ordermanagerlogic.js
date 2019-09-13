@@ -3,20 +3,38 @@ const BN = require('bn.js');
 const OrderManagerLogic = artifacts.require("OrderManagerLogic");
 const Token = artifacts.require("Token");
 
-let admin;
-let userA;
-let userB;
-let token;
-
 contract("OrderManagerLogic", accounts => {
 
-    it('Should init global users, init token', async() => {
+    beforeEach('Setup global variables before each test', async() =>{
         admin = accounts[0];
         userA = accounts[1];
         userB = accounts[2];
-        supply = new BN(21).mul(new BN(10).pow(new BN(24)));
         token = await Token.deployed();
     })
+
+    it('Test contract setup', async() => {
+        supply = new BN(21).mul(new BN(10).pow(new BN(24)));
+        token = await Token.deployed();
+        balance = await token.balanceOf(admin);
+        assert.equal(balance.toString(), supply.toString(), "Migrations deployed incorrectly.");
+        console.log(assert);
+    })
+
+
+    it('UserA should not be able to transfer to userB any tokens', async() => {
+        try {
+            supply = new BN(10).pow(new BN(24));
+			await token.transfer(admin, supply, {from: userB})
+			// If await passes, throw an assert fail
+			assert.fail('Expected revert not received');
+        } catch (error) {
+        	const revertFound = error.message.search('revert') >= 0;
+        	assert(revertFound, `Expected "revert", got ${error} instead`);
+        }
+    })
+
+
+
 
 });
 
