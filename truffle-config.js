@@ -1,4 +1,19 @@
 // jshint esversion: 8
+/*
+ * NB: since truffle-hdwallet-provider 0.0.5 you must wrap HDWallet providers in a
+ * function when declaring them. Failure to do so will cause commands to hang. ex:
+ * ```
+ * mainnet: {
+ *     provider: function() {
+ *       return new HDWalletProvider(mnemonic, 'https://mainnet.infura.io/<infura-key>')
+ *     },
+ *     network_id: '1',
+ *     gas: 4500000,
+ *     gasPrice: 10000000000,
+ *   },
+ * Also, truffle-hdwallet-provider messes up nonce in try / catch https://github.com/trufflesuite/truffle/issues/2016
+ */
+
 const HDWalletProvider = require('truffle-hdwallet-provider');
 const path = require("path");
 
@@ -16,17 +31,12 @@ module.exports = {
 
   networks: {
     develop: {
-      provider: function() {
-        return new HDWalletProvider(mnemonic, 'http://localhost:8545', 0, 10);
-      },
-      // host: '127.0.0.1',
-      // port: 8545,
+      // provider: function() {
+      //   return new HDWalletProvider(mnemonic, 'http://localhost:8545', 0, 10);
+      // },
+      host: '127.0.0.1',
+      port: 8545,
       network_id: '*',
-      // gas: 6721975,
-      // gasPrice: 20000000000,
-      // confirmations: 0,
-      // timeoutBlocks: 50,
-      // skipDryRun: true,
     },
     // coverage: {
     //   host: 'localhost',

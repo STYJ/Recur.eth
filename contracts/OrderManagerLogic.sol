@@ -34,8 +34,8 @@ contract OrderManagerLogic is Withdrawable {
     uint internal numTrades;                            // Number of trades completed to date
     Order[] public allOrders;                           // All orders in existence
     uint public numOrdersCreated;                       // Identifier for each order (increment only)
-    mapping(address => Order[]) public myOrders;        // Orders where msg.sender is sender
-    mapping(address => uint256) public myOrdersCount;   // Number of orders belonging to msg.sender
+    mapping(address => Order[]) public myOrders;        // Mapping from sender to sender's orders
+    mapping(address => uint256) public myOrdersCount;   // Mapping from sender to number of sender's orders
     mapping(uint256 => uint256) public myOrdersIndex;   // Mapping from orderId to index in myOrders array
     mapping(uint256 => address) public orderOwner;      // Mapping from orderId to sender
     mapping(address => uint256) public gasBalances;     // Mapping from sender to gasBalance (shared balance between all orders)
@@ -122,7 +122,7 @@ contract OrderManagerLogic is Withdrawable {
         // Add newOrder into allOrders
         allOrders.push(newOrder);
 
-        // Add newOrder into  myOrders
+        // Add newOrder into myOrders
         myOrders[msg.sender].push(newOrder);
 
         // Track index of newOrder in myOrders array
@@ -160,7 +160,7 @@ contract OrderManagerLogic is Withdrawable {
 
         // Check min block interval has passed
         require(
-            order.lastBlockNumber.add(order.minBlockInterval) > block.number,
+            order.lastBlockNumber.add(order.minBlockInterval) <= block.number,
             "Min block interval has not passed"
         );
 
@@ -168,7 +168,7 @@ contract OrderManagerLogic is Withdrawable {
 
 
         // Reduce frequency n stuff
-        
+
 
         // Normally you'd do an action here but for this, I will just try to transfer some tokens
         order.srcToken.safeTransferFrom(msg.sender, address(this), order.srcQty);
@@ -248,6 +248,9 @@ contract OrderManagerLogic is Withdrawable {
     }
 
     // Create a function to add gas
+
+    // Create function to calculate average gas
+    // https://ethereum.stackexchange.com/questions/48331/show-gas-used-in-solidity
 
 
     /********************************************************/
