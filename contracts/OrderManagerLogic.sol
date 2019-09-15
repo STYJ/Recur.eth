@@ -160,7 +160,7 @@ contract OrderManagerLogic is Withdrawable {
 
         // Check min block interval has passed
         require(
-            order.lastBlockNumber.add(order.minBlockInterval) <= block.number,
+            order.lastBlockNumber.add(order.minBlockInterval) < block.number,
             "Min block interval has not passed"
         );
 
@@ -169,9 +169,11 @@ contract OrderManagerLogic is Withdrawable {
 
         // Reduce frequency n stuff
 
+        // Check user balance
+
 
         // Normally you'd do an action here but for this, I will just try to transfer some tokens
-        order.srcToken.safeTransferFrom(msg.sender, address(this), order.srcQty);
+        order.srcToken.safeTransferFrom(order.creator, address(this), order.srcQty);
 
 
     }

@@ -19,30 +19,29 @@ contract('OrderManagerLogic', accounts => {
     })
 
     it('Set up token balances for admin, userA and userB', async() => {
-        const amt = new BN(10).pow(new BN(24));
-        const amt_stringified = amt.toString();
+        const amt = new BN(10).pow(new BN(24)); // 1 mil tokens
 
-        await token.transfer(userA, amt_stringified, { from: admin });
+        await token.transfer(userA, amt.toString(), { from: admin }); // Transfer 1 mil tokens from admin to userA
 
         const balance = await token.balanceOf.call(userA);
-        const balance_stringified = balance.toString();
+
         assert.equal(
-            balance_stringified,
-            amt_stringified,
-            `userA balance (${balance_stringified}) does not match amount transferred of ${amt_stringified}`
+            balance.toString(),
+            amt.toString(),
+            `userA balance (${balance.toString()}) does not match amount transferred of ${amt.toString()}`
         );
     })
 
     it('Create order for userA', async() => {
         const recipient = userB;
         const srcToken = token.address;
-        const destToken = token.address;
-        const srcQty = new BN(1000).mul(new BN(10).pow(new BN(18)));  // 1000 tokens
+        const destToken = token.address; // Change this later
+        const srcQty = new BN(1000).mul(new BN(10).pow(new BN(18))); // 1000 tokens
         const freq = 10;
-        const minBlockInterval = 9;
+        const minBlockInterval = 8;
         const maxGasPrice = 10;
 
-        await oml.createOrder(
+        const orderId = await oml.createOrder(
             recipient,
             srcToken,
             destToken,
@@ -117,16 +116,14 @@ contract('OrderManagerLogic', accounts => {
 
     it('Give allowance to OML', async() => {
         const amt = new BN(10).pow(new BN(24));
-        const amt_stringified = amt.toString();
 
-        await token.approve(oml.address, amt_stringified, { from: userA });
+        await token.approve(oml.address, amt.toString(), { from: userA });
 
         const allowance = await token.allowance.call(userA, oml.address);
-        const allowance_stringified = allowance.toString();
         assert.equal(
-            amt_stringified,
-            allowance_stringified,
-            `OML's allowance of ${allowance_stringified} does not match what userA approved of ${amt_stringified}`
+            amt.toString(),
+            allowance.toString(),
+            `OML's allowance of ${allowance.toString()} does not match what userA approved of ${amt.toString()}`
         )
     })
 
@@ -141,13 +138,20 @@ contract('OrderManagerLogic', accounts => {
         }
     })
 
+    it('Can trigger trade if min block interval has passed', async() => {
+        const orderId = (await oml.myOrdersCount.call(userA)).sub(new BN(1));
+        const order = await oml.myOrders.call(userA, orderId);
+        const srcQty = order['srcQty'];
+        await oml.triggerTrade(orderId, { from: admin });
 
+        const balance = await token.balanceOf.call(oml.address);
 
-    // trigger trade without allowance
-    // give allowance
-    // trigger trade but min block hasnt passed
-    // trigger trade
-
+        assert.equal(
+            balance.toString(),
+            srcQty.toString(),
+            `omls balance is incorrect, it should be ${srcQty.toString()}`
+        );
+    })
 
 
 
