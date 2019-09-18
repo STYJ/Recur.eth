@@ -164,13 +164,11 @@ contract OrderManagerLogic is Withdrawable {
             "Min block interval has not passed"
         );
 
-        // Check that there's sufficient gas balance
-
+        // Check that there's sufficient gas balance and transfer gas to me
 
         // Reduce frequency n stuff
 
-        // Check user balance
-
+        // Check user balance and execute trade the trade?
 
         // Normally you'd do an action here but for this, I will just try to transfer some tokens
         order.srcToken.safeTransferFrom(order.creator, address(this), order.srcQty);
@@ -189,23 +187,25 @@ contract OrderManagerLogic is Withdrawable {
         uint _maxGasPrice
     ) public onlyOrderOwner(_orderId) {
         require(_recipient != address(0), "Recipient cannot be the null address");
+        require(address(_srcToken) != address(0), "SrcToken cannot be the null address");
+        require(address(_destToken) != address(0), "Dest  cannot be the null address");
         require(_srcQty > 0, "SrcQty is too low.");
         require(_frequency > 0, "Trade frequency is too low.");
         require(_minBlockInterval > 0, "Min number of blocks between trades is too low.");
         require(_maxGasPrice > 0, "Max gas price is too low.");
 
         Order memory newOrder = Order(
-            _orderId,
-            msg.sender,
-            _recipient,
-            _srcToken,
-            _destToken,
-            _srcQty,
-            _frequency,
-            _minBlockInterval,
-            0,
-            _maxGasPrice,
-            true
+            _orderId,                                   // orderId
+            msg.sender,                                 // creator
+            _recipient,                                 // recipient
+            _srcToken,                                  // srcToken
+            _destToken,                                 // destToken
+            _srcQty,                                    // srcQty
+            _frequency,                                 // frequency
+            _minBlockInterval,                          // minBlockInterval
+            block.number,                               // lastBlockNumber
+            _maxGasPrice,                               // maxGasPrice
+            true                                        // active
         );
 
         // Replace old order with newOrder in allOrders

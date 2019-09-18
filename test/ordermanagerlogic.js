@@ -1,42 +1,31 @@
 const BN = require('bn.js');
 
 const OrderManagerLogic = artifacts.require('OrderManagerLogic');
-const Token = artifacts.require('Token');
+const TestTokenOne = artifacts.require('TestTokenOne');
+const TestTokenTwo = artifacts.require('TestTokenTwo');
 
 contract('OrderManagerLogic', accounts => {
     let admin;
     let userA;
     let userB;
-    let token;
+    let tokenOne;
+    let tokenTwo;
     let oml;
 
     it('Set up global variables', async() => {
         admin = accounts[0];
         userA = accounts[1];
         userB = accounts[2];
-        token = await Token.deployed();
+        tokenOne = await TestTokenOne.deployed();
+        tokenTwo = await TestTokenTwo.deployed();
         oml = await OrderManagerLogic.deployed();
-    })
-
-    it('Set up token balances for admin, userA and userB', async() => {
-        const amt = new BN(10).pow(new BN(24)); // 1 mil tokens
-
-        await token.transfer(userA, amt.toString(), { from: admin }); // Transfer 1 mil tokens from admin to userA
-
-        const balance = await token.balanceOf.call(userA);
-
-        assert.equal(
-            balance.toString(),
-            amt.toString(),
-            `userA balance (${balance.toString()}) does not match amount transferred of ${amt.toString()}`
-        );
     })
 
     it('Create order for userA', async() => {
         const recipient = userB;
-        const srcToken = token.address;
-        const destToken = token.address; // Change this later
-        const srcQty = new BN(1000).mul(new BN(10).pow(new BN(18))); // 1000 tokens
+        const srcToken = tokenOne.address;
+        const destToken = tokenTwo.address;
+        const srcQty = new BN(1000).mul(new BN(10).pow(new BN(6))); // 1000 tokens
         const freq = 10;
         const minBlockInterval = 8;
         const maxGasPrice = 10;
@@ -115,11 +104,11 @@ contract('OrderManagerLogic', accounts => {
     })
 
     it('Give allowance to OML', async() => {
-        const amt = new BN(10).pow(new BN(24));
+        const amt = new BN(1000000).mul(new BN(10).pow(new BN(6))); // 1 mil tokens
 
-        await token.approve(oml.address, amt.toString(), { from: userA });
+        await tokenOne.approve(oml.address, amt.toString(), { from: userA });
 
-        const allowance = await token.allowance.call(userA, oml.address);
+        const allowance = await tokenOne.allowance.call(userA, oml.address);
         assert.equal(
             amt.toString(),
             allowance.toString(),
@@ -144,7 +133,7 @@ contract('OrderManagerLogic', accounts => {
         const srcQty = order['srcQty'];
         await oml.triggerTrade(orderId, { from: admin });
 
-        const balance = await token.balanceOf.call(oml.address);
+        const balance = await tokenOne.balanceOf.call(oml.address);
 
         assert.equal(
             balance.toString(),
