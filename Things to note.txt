@@ -1,7 +1,7 @@
 Considerations
 - What if I tried to DCA and it failed? Solution: Monitor price on Kyber before you broadcast and you only take gas from enduser if the trade passes
 
-Extensions
+ToDo
 - Replace tokenToEth and ethToToken with mock trade functions. Just return an equal amount of Eth or tokens back.
 - Need function to calculate gas
 - Split token to token trades into 2. Deduct gas from the ETH component. 
