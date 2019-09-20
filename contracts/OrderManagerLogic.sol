@@ -3,6 +3,7 @@ pragma solidity ^0.5.10;
 import "./kyber-mock-contracts/KyberNetworkProxyInterface.sol";
 import "./kyber-mock-contracts/Withdrawable.sol";
 import "./openzeppelin-contracts/contracts/token/ERC20/SafeERC20.sol";
+import "./openzeppelin-contracts/contracts/token/ERC20/ERC20Detailed.sol";
 import "./openzeppelin-contracts/contracts/math/SafeMath.sol";
 
 contract OrderManagerLogic is Withdrawable {
@@ -11,7 +12,7 @@ contract OrderManagerLogic is Withdrawable {
     /********************************************************/
 
     /* Directives */
-    using SafeERC20 for ERC20;
+    using SafeERC20 for ERC20Detailed;
     using SafeMath for uint;
 
     /* Order struct */
@@ -19,8 +20,8 @@ contract OrderManagerLogic is Withdrawable {
         uint orderId;                                   // Unique identifier of Order
         address creator;                                // Address of creator of order
         address recipient;                              // Address of recipient of order
-        ERC20 srcToken;                                 // Source token address
-        ERC20 destToken;                                // Destination token address
+        ERC20Detailed srcToken;                                 // Source token address
+        ERC20Detailed destToken;                                // Destination token address
         uint srcQty;                                    // Src quantity per trade
         uint numTrades;                                 // Number of trades
         uint minBlockInterval;                          // Minimum block interval between trades
@@ -90,8 +91,8 @@ contract OrderManagerLogic is Withdrawable {
 
     function createOrder(
         address _recipient,
-        ERC20 _srcToken,
-        ERC20 _destToken,
+        ERC20Detailed _srcToken,
+        ERC20Detailed _destToken,
         uint _srcQty,
         uint _frequency,
         uint _minBlockInterval,
@@ -179,8 +180,8 @@ contract OrderManagerLogic is Withdrawable {
     function updateOrder(
         uint _orderId,
         address _recipient,
-        ERC20 _srcToken,
-        ERC20 _destToken,
+        ERC20Detailed _srcToken,
+        ERC20Detailed _destToken,
         uint _srcQty,
         uint _frequency,
         uint _minBlockInterval,
@@ -254,13 +255,12 @@ contract OrderManagerLogic is Withdrawable {
     // Create function to calculate average gas
     // https://ethereum.stackexchange.com/questions/48331/show-gas-used-in-solidity
 
-
     /********************************************************/
     /* KyberNetworkProxy constants, variables and functions */
     /********************************************************/
 
     /* Constants */
-    ERC20 constant internal ETH_TOKEN_ADDRESS = ERC20(0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee);
+    ERC20Detailed constant internal ETH_TOKEN_ADDRESS = ERC20Detailed(0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee);
     uint constant internal MAX_QTY = 10**28;
     address constant internal WALLET_ID = address(0);
     bytes constant constant HINT = "";
@@ -272,8 +272,8 @@ contract OrderManagerLogic is Withdrawable {
     event Trade(
         address indexed sender,
         address indexed recipient,
-        ERC20 srcToken,
-        ERC20 destToken,
+        ERC20Detailed srcToken,
+        ERC20Detailed destToken,
         uint srcQty,
         uint destQty
     );
@@ -287,9 +287,9 @@ contract OrderManagerLogic is Withdrawable {
      * @param _destAddress address to send swapped tokens to
      */
     function swapTokenToToken(
-        ERC20 _srcToken,
+        ERC20Detailed _srcToken,
         uint _srcQty,
-        ERC20 _destToken,
+        ERC20Detailed _destToken,
         address payable _destAddress
     ) internal {
         uint minConversionRate;
@@ -305,24 +305,31 @@ contract OrderManagerLogic is Withdrawable {
         // Set the spender's token allowance to tokenQty
         _srcToken.safeApprove(address(kyberNetworkProxyContract), _srcQty);
 
-        // Get the minimum conversion rate
-        (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(
-            _srcToken,
-            _destToken,
-            _srcQty
-        );
+        // // Get the minimum conversion rate
+        // (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(
+        //     _srcToken,
+        //     _destToken,
+        //     _srcQty
+        // );
 
-        // Swap the ERC20 token to ERC20 token / ETH and send to destAddress
-        destQty = kyberNetworkProxyContract.tradeWithHint(
-            _srcToken,
-            _srcQty,
-            _destToken,
-            _destAddress,
-            MAX_QTY,
-            minConversionRate,
-            WALLET_ID,
-            HINT
-        );
+        // // Swap the ERC20 token to ERC20 token / ETH and send to destAddress
+        // destQty = kyberNetworkProxyContract.tradeWithHint(
+        //     _srcToken,
+        //     _srcQty,
+        //     _destToken,
+        //     _destAddress,
+        //     MAX_QTY,
+        //     minConversionRate,
+        //     WALLET_ID,
+        //     HINT
+        // );
+
+        // Calculating how much destToken to transfer back
+        uint srcDecimals = _srcToken.decimals();
+        uint dstDecimals = _destToken.decimals();
+        destQty = _srcQty.mul(dstDecimals).div(srcDecimals);    // Note that some precision might be truncated if you go from higher decimal to lower decimals
+        _destToken.safeTransfer(msg.sender, destQty);
+        
 
         // Log the event
         emit Trade(msg.sender, _destAddress, _srcToken, _destToken, _srcQty, destQty);
@@ -334,7 +341,7 @@ contract OrderManagerLogic is Withdrawable {
      * @param _destAddress address to send swapped tokens to
      */
     function swapEthToToken(
-        ERC20 _destToken,
+        ERC20Detailed _destToken,
         address payable _destAddress
     ) internal {
         require(msg.value != 0, "Transaction has no Eth");
@@ -371,7 +378,7 @@ contract OrderManagerLogic is Withdrawable {
      * @param _destAddress address to send swapped ETH to
      */
     function swapTokenToEth(
-        ERC20 _srcToken,
+        ERC20Detailed _srcToken,
         uint _srcQty,
         address payable _destAddress
     ) internal {
