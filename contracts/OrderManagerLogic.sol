@@ -292,18 +292,18 @@ contract OrderManagerLogic is Withdrawable {
         ERC20Detailed _destToken,
         address payable _destAddress
     ) internal {
-        uint minConversionRate;
-        uint destQty;
+        // uint minConversionRate;
+        // uint destQty;
 
-        // Check that the token transferFrom has succeeded
-        _srcToken.safeTransferFrom(msg.sender, address(this), _srcQty);
+        // // Check that the token transferFrom has succeeded
+        // _srcToken.safeTransferFrom(msg.sender, address(this), _srcQty);
 
-        // Mitigate ERC20 Approve front-running attack, by initially setting
-        // allowance to 0
-        _srcToken.safeApprove(address(kyberNetworkProxyContract), 0);
+        // // Mitigate ERC20 Approve front-running attack, by initially setting
+        // // allowance to 0
+        // _srcToken.safeApprove(address(kyberNetworkProxyContract), 0);
 
-        // Set the spender's token allowance to tokenQty
-        _srcToken.safeApprove(address(kyberNetworkProxyContract), _srcQty);
+        // // Set the spender's token allowance to tokenQty
+        // _srcToken.safeApprove(address(kyberNetworkProxyContract), _srcQty);
 
         // // Get the minimum conversion rate
         // (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(
@@ -324,11 +324,11 @@ contract OrderManagerLogic is Withdrawable {
         //     HINT
         // );
 
-        // Calculating how much destToken to transfer back
-        uint srcDecimals = _srcToken.decimals();
-        uint dstDecimals = _destToken.decimals();
-        destQty = _srcQty.mul(dstDecimals).div(srcDecimals);    // Note that some precision might be truncated if you go from higher decimal to lower decimals
-        _destToken.safeTransfer(msg.sender, destQty);
+
+
+
+
+
         
 
         // Log the event
@@ -344,28 +344,43 @@ contract OrderManagerLogic is Withdrawable {
         ERC20Detailed _destToken,
         address payable _destAddress
     ) internal {
+        // require(msg.value != 0, "Transaction has no Eth");
+        // uint minConversionRate;
+        // uint destQty;
+
+        // // Get the minimum conversion rate
+        // (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(
+        //     ETH_TOKEN_ADDRESS,
+        //     _destToken,
+        //     msg.value
+        // );
+
+        // // Swap the ETH to ERC20 token and send to destination address
+        // destQty = kyberNetworkProxyContract.tradeWithHint.value(msg.value)(
+        //     ETH_TOKEN_ADDRESS,
+        //     msg.value,
+        //     _destToken,
+        //     _destAddress,
+        //     MAX_QTY,
+        //     minConversionRate,
+        //     WALLET_ID,
+        //     HINT
+        // );
+
+        // Check that ETH transferred
         require(msg.value != 0, "Transaction has no Eth");
-        uint minConversionRate;
-        uint destQty;
 
-        // Get the minimum conversion rate
-        (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(
-            ETH_TOKEN_ADDRESS,
-            _destToken,
-            msg.value
-        );
+        // Convert ETH amount to destToken amount
+        // Note that some precision might be truncated if you go from higher decimal to lower decimals
+        uint ethDecimals = 18;
+        uint destDecimals = _destToken.decimals(); 
+        uint destQty = msg.value.mul(destDecimals).div(ethDecimals); 
 
-        // Swap the ETH to ERC20 token and send to destination address
-        destQty = kyberNetworkProxyContract.tradeWithHint.value(msg.value)(
-            ETH_TOKEN_ADDRESS,
-            msg.value,
-            _destToken,
-            _destAddress,
-            MAX_QTY,
-            minConversionRate,
-            WALLET_ID,
-            HINT
-        );
+        // Check that there is sufficient destToken balance in OML
+        require(_destToken.balanceOf(address(this)) > destQty, "Insufficient tokens in OML for transfer");
+        
+        // Transfer destToken to destAddress
+        _destToken.safeTransfer(_destAddress, destQty);
 
         // Log the event
         emit Trade(msg.sender, _destAddress, ETH_TOKEN_ADDRESS, _destToken, msg.value, destQty);
@@ -382,33 +397,48 @@ contract OrderManagerLogic is Withdrawable {
         uint _srcQty,
         address payable _destAddress
     ) internal {
-        uint minConversionRate;
-        uint destQty;
+        // uint minConversionRate;
+        // uint destQty;
+
+        // // Check that the token transferFrom has succeeded
+        // _srcToken.safeTransferFrom(msg.sender, address(this), _srcQty);
+
+        // // Mitigate ERC20 Approve front-running attack, by initially setting
+        // // allowance to 0
+        // _srcToken.safeApprove(address(kyberNetworkProxyContract), 0);
+
+        // // Set the spender's token allowance to tokenQty
+        // _srcToken.safeApprove(address(kyberNetworkProxyContract), _srcQty);
+
+        // // Get the minimum conversion rate
+        // (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(_srcToken, ETH_TOKEN_ADDRESS, _srcQty);
+
+        // // Swap the ERC20 token to ETH and send to destination address
+        // destQty = kyberNetworkProxyContract.tradeWithHint(
+        //     _srcToken,
+        //     _srcQty,
+        //     ETH_TOKEN_ADDRESS,
+        //     _destAddress,
+        //     MAX_QTY,
+        //     minConversionRate,
+        //     WALLET_ID,
+        //     HINT
+        // );
 
         // Check that the token transferFrom has succeeded
         _srcToken.safeTransferFrom(msg.sender, address(this), _srcQty);
+        
+        // Convert destToken amount to ETH amount
+        // Note that some precision might be truncated if you go from higher decimal to lower decimals
+        uint srcDecimals = _srcToken.decimals();
+        uint ethDecimals = 18;
+        uint destQty = _srcQty.mul(ethDecimals).div(srcDecimals);    // Note that some precision might be truncated if you go from higher decimal to lower decimals
+        
+        // Check that there is sufficient ETH balance in OML        
+        require(address(this).balance > destQty, "Insufficient ETH in OML for transfer");
 
-        // Mitigate ERC20 Approve front-running attack, by initially setting
-        // allowance to 0
-        _srcToken.safeApprove(address(kyberNetworkProxyContract), 0);
-
-        // Set the spender's token allowance to tokenQty
-        _srcToken.safeApprove(address(kyberNetworkProxyContract), _srcQty);
-
-        // Get the minimum conversion rate
-        (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(_srcToken, ETH_TOKEN_ADDRESS, _srcQty);
-
-        // Swap the ERC20 token to ETH and send to destination address
-        destQty = kyberNetworkProxyContract.tradeWithHint(
-            _srcToken,
-            _srcQty,
-            ETH_TOKEN_ADDRESS,
-            _destAddress,
-            MAX_QTY,
-            minConversionRate,
-            WALLET_ID,
-            HINT
-        );
+        // Transfer ETH to destAddress
+        require(_destAddress.send(destQty), "ETH transf Per failed");
 
         // Log the event
         emit Trade(msg.sender, _destAddress, _srcToken, ETH_TOKEN_ADDRESS, _srcQty, destQty);
