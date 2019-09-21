@@ -1,8 +1,10 @@
 const BN = require('bn.js');
+const fs = require('fs');
 
 const OrderManagerLogic = artifacts.require('OrderManagerLogic');
 const TestTokenOne = artifacts.require('TestTokenOne');
 const TestTokenTwo = artifacts.require('TestTokenTwo');
+const TokenConfig = JSON.parse(fs.readFileSync('../config/tokens.json', 'utf8'));
 
 contract('OrderManagerLogic', accounts => {
     let admin;
@@ -21,12 +23,12 @@ contract('OrderManagerLogic', accounts => {
         oml = await OrderManagerLogic.deployed();
     })
 
-    it('Create order for userA', async() => {
+    it('Create TokenOne To TokenTwo order for userA', async() => {
         const recipient = userB;
         const srcToken = tokenOne.address;
         const destToken = tokenTwo.address;
-        const srcQty = new BN(1000).mul(new BN(10).pow(new BN(6))); // 1000 tokens
-        const freq = 10;
+        const srcQty = new BN(1000).mul(new BN(10).pow(new BN(6))); // 1000 tokenOnes per trade
+        const numTrades = 5;
         const minBlockInterval = 8;
         const maxGasPrice = 10;
 
@@ -35,7 +37,7 @@ contract('OrderManagerLogic', accounts => {
             srcToken,
             destToken,
             srcQty,
-            freq,
+            numTrades,
             minBlockInterval,
             maxGasPrice,
             { from: userA }

@@ -1,10 +1,12 @@
 /* global artifacts, web3 */
 /* eslint-disable no-unused-vars */
 const BN = require("bn.js");
+const fs = require('fs');
 
 const TestTokenOne = artifacts.require("TestTokenOne");
 const TestTokenTwo = artifacts.require("TestTokenTwo");
 const OrderManagerLogic = artifacts.require("OrderManagerLogic");
+const TokenConfig = JSON.parse(fs.readFileSync('../config/tokens.json', 'utf8'));
 
 function tx(result, call) {
   const logs =
@@ -45,44 +47,44 @@ module.exports = async (deployer, network, accounts) => {
   tx(
     await TokenOneInstance.mint(
       Admin,
-      new BN(8).mul(new BN(1000000)).mul(new BN(10).pow(new BN(6)))
+      new BN(TokenConfig.Admin.TokenOne).mul(new BN(10).pow(new BN(6)))            
     ),
-    "Mint 8,000,000 TestTokenOne to Admin"
+    `Mint ${TokenConfig.Admin.TokenOne} TestTokenOne to Admin`
   );
   tx(
     await TokenOneInstance.mint(
       UserA,
-      new BN(1).mul(new BN(1000000)).mul(new BN(10).pow(new BN(6)))
+      new BN(TokenConfig.UserA.TokenOne).mul(new BN(10).pow(new BN(6)))      
     ),
-    "Mint 1,000,000 TestTokenOne to UserA"
+    `Mint ${TokenConfig.UserA.TokenOne} TestTokenOne to UserA`
   );
   tx(
     await TokenOneInstance.mint(
       OML.address,
-      new BN(12).mul(new BN(1000000)).mul(new BN(10).pow(new BN(6)))
+      new BN(TokenConfig.OML.TokenOne).mul(new BN(10).pow(new BN(6)))      
     ),
-    "Mint 12,000,000 TestTokenOne to OML"
+    `Mint ${TokenConfig.OML.TokenOne} TestTokenOne to OML`
   );
   tx(
     await TokenTwoInstance.mint(
       Admin,
-      new BN(3).mul(new BN(1000000)).mul(new BN(10).pow(new BN(6)))
+      new BN(TokenConfig.Admin.TokenTwo).mul(new BN(10).pow(new BN(12)))      
     ),
-    "Mint 3,000,000 TestTokenTwo to Admin"
+    `Mint ${TokenConfig.Admin.TokenTwo} TestTokenTwo to Admin`
   );
   tx(
     await TokenTwoInstance.mint(
       UserB,
-      new BN(1).mul(new BN(1000000)).mul(new BN(10).pow(new BN(6)))
+      new BN(TokenConfig.UserB.TokenTwo).mul(new BN(10).pow(new BN(12)))
     ),
-    "Mint 1,000,000 TestTokenTwo to UserB"
+    `Mint ${TokenConfig.UserB.TokenTwo} TestTokenTwo to UserB`
   );
   tx(
     await TokenTwoInstance.mint(
       OML.address,
-      new BN(5).mul(new BN(1000000)).mul(new BN(10).pow(new BN(6)))
+      new BN(TokenConfig.OML.TokenTwo).mul(new BN(10).pow(new BN(12)))      
     ),
-    "Mint 5,000,000 TestTokenTwo to OML"
+    `Mint ${TokenConfig.OML.TokenTwo} TestTokenTwo to OML`
   );
 
   // Transfer ETH to OML

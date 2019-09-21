@@ -19,11 +19,11 @@ contract OrderManagerLogic is Withdrawable {
     struct Order {
         uint orderId;                                   // Unique identifier of Order
         address creator;                                // Address of creator of order
-        address recipient;                              // Address of recipient of order
-        ERC20Detailed srcToken;                                 // Source token address
-        ERC20Detailed destToken;                                // Destination token address
+        address payable recipient;                      // Address of recipient of order
+        ERC20Detailed srcToken;                         // Source token address
+        ERC20Detailed destToken;                        // Destination token address
         uint srcQty;                                    // Src quantity per trade
-        uint numTrades;                                 // Number of trades
+        uint numTradesLeft;                             // Number of trades left
         uint minBlockInterval;                          // Minimum block interval between trades
         uint lastBlockNumber;                           // Block number of last successful trade
         uint maxGasPrice;                               // Max gas price of a trade
@@ -32,7 +32,7 @@ contract OrderManagerLogic is Withdrawable {
 
     /* Variables */
     uint internal totalGasCosts;                        // Total gas used by all orders to date
-    uint internal numTrades;                            // Number of trades completed to date
+    uint internal numTradesCompleted;                   // Number of trades completed to date
     Order[] public allOrders;                           // All orders in existence
     uint public numOrdersCreated;                       // Identifier for each order (increment only)
     mapping(address => Order[]) public myOrders;        // Mapping from sender to sender's orders
@@ -90,11 +90,11 @@ contract OrderManagerLogic is Withdrawable {
     }
 
     function createOrder(
-        address _recipient,
+        address payable _recipient,
         ERC20Detailed _srcToken,
         ERC20Detailed _destToken,
         uint _srcQty,
-        uint _frequency,
+        uint _numTradesLeft,
         uint _minBlockInterval,
         uint _maxGasPrice
     ) public returns (uint) {
@@ -102,7 +102,7 @@ contract OrderManagerLogic is Withdrawable {
         require(address(_srcToken) != address(0), "SrcToken cannot be the null address");
         require(address(_destToken) != address(0), "Dest  cannot be the null address");
         require(_srcQty > 0, "SrcQty is too low.");
-        require(_frequency > 0, "Trade frequency is too low.");
+        require(_numTradesLeft > 0, "Number of trades left is too low.");
         require(_minBlockInterval > 0, "Min number of blocks between trades is too low.");
         require(_maxGasPrice > 0, "Max gas price is too low.");
 
@@ -113,7 +113,7 @@ contract OrderManagerLogic is Withdrawable {
             _srcToken,                                  // srcToken
             _destToken,                                 // destToken
             _srcQty,                                    // srcQty
-            _frequency,                                 // frequency
+            _numTradesLeft,                             // numTradesLeft
             _minBlockInterval,                          // minBlockInterval
             block.number,                               // lastBlockNumber
             _maxGasPrice,                               // maxGasPrice
@@ -165,25 +165,43 @@ contract OrderManagerLogic is Withdrawable {
             "Min block interval has not passed"
         );
 
+        // Check that numTradesLeft is more than 0
+        require(
+            order.numTradesLeft > 0,
+            "Order numTradesLeft needs to be greater than 0"
+        );
+
         // Check that there's sufficient gas balance and transfer gas to me
 
-        // Reduce frequency n stuff
+        // Reduce numTradesLeft n stuff
 
         // Check user balance and execute trade the trade?
 
-        // Normally you'd do an action here but for this, I will just try to transfer some tokens
-        order.srcToken.safeTransferFrom(order.creator, address(this), order.srcQty);
+
+        if(order.srcToken != ETH_TOKEN_ADDRESS && order.destToken != ETH_TOKEN_ADDRESS) {
+            swapTokenToToken(order.creator, order.recipient, order.srcToken, order.srcQty, order.destToken);
+        } else if(order.srcToken != ETH_TOKEN_ADDRESS && order.destToken == ETH_TOKEN_ADDRESS) {
+            swapTokenToEth(order.creator, order.recipient, order.srcToken, order.srcQty);
+        } else if(order.srcToken == ETH_TOKEN_ADDRESS && order.destToken != ETH_TOKEN_ADDRESS) {
+            swapEthToToken(order.creator, order.recipient, order.destToken);
+        } else {
+            // Shouldn't be able to reach here
+            revert("srcToken and destToken are both ETH!");
+        }
+        
+        // // Normally you'd do an action here but for this, I will just try to transfer some tokens
+        // order.srcToken.safeTransferFrom(order.creator, address(this), order.srcQty);
 
 
     }
 
     function updateOrder(
         uint _orderId,
-        address _recipient,
+        address payable _recipient,
         ERC20Detailed _srcToken,
         ERC20Detailed _destToken,
         uint _srcQty,
-        uint _frequency,
+        uint _numTradesLeft,
         uint _minBlockInterval,
         uint _maxGasPrice
     ) public onlyOrderOwner(_orderId) {
@@ -191,7 +209,7 @@ contract OrderManagerLogic is Withdrawable {
         require(address(_srcToken) != address(0), "SrcToken cannot be the null address");
         require(address(_destToken) != address(0), "Dest  cannot be the null address");
         require(_srcQty > 0, "SrcQty is too low.");
-        require(_frequency > 0, "Trade frequency is too low.");
+        require(_numTradesLeft > 0, "Number of trades left is too low.");
         require(_minBlockInterval > 0, "Min number of blocks between trades is too low.");
         require(_maxGasPrice > 0, "Max gas price is too low.");
 
@@ -202,7 +220,7 @@ contract OrderManagerLogic is Withdrawable {
             _srcToken,                                  // srcToken
             _destToken,                                 // destToken
             _srcQty,                                    // srcQty
-            _frequency,                                 // frequency
+            _numTradesLeft,                                 // numTradesLeft
             _minBlockInterval,                          // minBlockInterval
             block.number,                               // lastBlockNumber
             _maxGasPrice,                               // maxGasPrice
@@ -284,13 +302,14 @@ contract OrderManagerLogic is Withdrawable {
      * @param _srcToken source token contract address
      * @param _srcQty amount of source tokens
      * @param _destToken destination token contract address
-     * @param _destAddress address to send swapped tokens to
+     * @param _destAddress address to send dca-ed tokens to
      */
     function swapTokenToToken(
+        address _creator,
+        address payable _destAddress,
         ERC20Detailed _srcToken,
         uint _srcQty,
-        ERC20Detailed _destToken,
-        address payable _destAddress
+        ERC20Detailed _destToken
     ) internal {
         // uint minConversionRate;
         // uint destQty;
@@ -324,25 +343,34 @@ contract OrderManagerLogic is Withdrawable {
         //     HINT
         // );
 
-
-
-
-
-
+        // Check that the srcToken transferFrom has succeeded
+        _srcToken.safeTransferFrom(_creator, address(this), _srcQty);
         
+        // Convert srcToken amount to destToken amount
+        // Note that some precision might be truncated if you go from higher decimal to lower decimals
+        uint srcDecimals = _srcToken.decimals();
+        uint destDecimals = _destToken.decimals();
+        uint destQty = _srcQty.mul(destDecimals).div(srcDecimals);    // Note that some precision might be truncated if you go from higher decimal to lower decimals
+        
+        // Check that there is sufficient destToken balance in OML
+        require(_destToken.balanceOf(address(this)) > destQty, "Insufficient tokens in OML for transfer");
+        
+        // Transfer destToken to destAddress
+        _destToken.safeTransfer(_destAddress, destQty);
 
         // Log the event
-        emit Trade(msg.sender, _destAddress, _srcToken, _destToken, _srcQty, destQty);
+        emit Trade(_creator, _destAddress, _srcToken, _destToken, _srcQty, destQty);
     }
 
     /**
      * @dev Swap the user's ETH to ERC20 token
      * @param _destToken destination token contract address
-     * @param _destAddress address to send swapped tokens to
+     * @param _destAddress address to send dca-ed tokens to
      */
     function swapEthToToken(
-        ERC20Detailed _destToken,
-        address payable _destAddress
+        address _creator,
+        address payable _destAddress,
+        ERC20Detailed _destToken
     ) internal {
         // require(msg.value != 0, "Transaction has no Eth");
         // uint minConversionRate;
@@ -383,19 +411,20 @@ contract OrderManagerLogic is Withdrawable {
         _destToken.safeTransfer(_destAddress, destQty);
 
         // Log the event
-        emit Trade(msg.sender, _destAddress, ETH_TOKEN_ADDRESS, _destToken, msg.value, destQty);
+        emit Trade(_creator, _destAddress, ETH_TOKEN_ADDRESS, _destToken, msg.value, destQty);
     }
 
     /**
      * @dev Swap the user's ERC20 token to ETH
      * @param _srcToken source token contract address
      * @param _srcQty amount of source tokens
-     * @param _destAddress address to send swapped ETH to
+     * @param _destAddress address to send dca-ed ETH to
      */
     function swapTokenToEth(
+        address _creator,
+        address payable _destAddress,
         ERC20Detailed _srcToken,
-        uint _srcQty,
-        address payable _destAddress
+        uint _srcQty
     ) internal {
         // uint minConversionRate;
         // uint destQty;
@@ -425,10 +454,10 @@ contract OrderManagerLogic is Withdrawable {
         //     HINT
         // );
 
-        // Check that the token transferFrom has succeeded
-        _srcToken.safeTransferFrom(msg.sender, address(this), _srcQty);
+        // Check that the srcToken transferFrom has succeeded
+        _srcToken.safeTransferFrom(_creator, address(this), _srcQty);
         
-        // Convert destToken amount to ETH amount
+        // Convert srcToken amount to ETH amount
         // Note that some precision might be truncated if you go from higher decimal to lower decimals
         uint srcDecimals = _srcToken.decimals();
         uint ethDecimals = 18;
