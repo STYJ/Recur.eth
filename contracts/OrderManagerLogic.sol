@@ -183,7 +183,7 @@ contract OrderManagerLogic is Withdrawable {
         } else if(order.srcToken != ETH_TOKEN_ADDRESS && order.destToken == ETH_TOKEN_ADDRESS) {
             swapTokenToEth(order.creator, order.recipient, order.srcToken, order.srcQty);
         } else if(order.srcToken == ETH_TOKEN_ADDRESS && order.destToken != ETH_TOKEN_ADDRESS) {
-            swapEthToToken(order.creator, order.recipient, order.destToken);
+            revert("srcToken is ETH but ETH is not ERC20!");
         } else {
             // Shouldn't be able to reach here
             revert("srcToken and destToken are both ETH!");
@@ -299,11 +299,13 @@ contract OrderManagerLogic is Withdrawable {
     /* Functions */
     /**
      * @dev Swap the user's ERC20 token to another ERC20 token / ETH
+     * @param _creator creator of the order
      * @param _srcToken source token contract address
      * @param _srcQty amount of source tokens
      * @param _destToken destination token contract address
      * @param _destAddress address to send dca-ed tokens to
      */
+    //  Todo: Break token to token swap into Token -> ETH -> Token so you can deduct fees.
     function swapTokenToToken(
         address _creator,
         address payable _destAddress,
@@ -311,37 +313,6 @@ contract OrderManagerLogic is Withdrawable {
         uint _srcQty,
         ERC20Detailed _destToken
     ) internal {
-        // uint minConversionRate;
-        // uint destQty;
-
-        // // Check that the token transferFrom has succeeded
-        // _srcToken.safeTransferFrom(msg.sender, address(this), _srcQty);
-
-        // // Mitigate ERC20 Approve front-running attack, by initially setting
-        // // allowance to 0
-        // _srcToken.safeApprove(address(kyberNetworkProxyContract), 0);
-
-        // // Set the spender's token allowance to tokenQty
-        // _srcToken.safeApprove(address(kyberNetworkProxyContract), _srcQty);
-
-        // // Get the minimum conversion rate
-        // (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(
-        //     _srcToken,
-        //     _destToken,
-        //     _srcQty
-        // );
-
-        // // Swap the ERC20 token to ERC20 token / ETH and send to destAddress
-        // destQty = kyberNetworkProxyContract.tradeWithHint(
-        //     _srcToken,
-        //     _srcQty,
-        //     _destToken,
-        //     _destAddress,
-        //     MAX_QTY,
-        //     minConversionRate,
-        //     WALLET_ID,
-        //     HINT
-        // );
 
         // Check that the srcToken transferFrom has succeeded
         _srcToken.safeTransferFrom(_creator, address(this), _srcQty);
@@ -363,97 +334,19 @@ contract OrderManagerLogic is Withdrawable {
     }
 
     /**
-     * @dev Swap the user's ETH to ERC20 token
-     * @param _destToken destination token contract address
-     * @param _destAddress address to send dca-ed tokens to
-     */
-    function swapEthToToken(
-        address _creator,
-        address payable _destAddress,
-        ERC20Detailed _destToken
-    ) internal {
-        // require(msg.value != 0, "Transaction has no Eth");
-        // uint minConversionRate;
-        // uint destQty;
-
-        // // Get the minimum conversion rate
-        // (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(
-        //     ETH_TOKEN_ADDRESS,
-        //     _destToken,
-        //     msg.value
-        // );
-
-        // // Swap the ETH to ERC20 token and send to destination address
-        // destQty = kyberNetworkProxyContract.tradeWithHint.value(msg.value)(
-        //     ETH_TOKEN_ADDRESS,
-        //     msg.value,
-        //     _destToken,
-        //     _destAddress,
-        //     MAX_QTY,
-        //     minConversionRate,
-        //     WALLET_ID,
-        //     HINT
-        // );
-
-        // Check that ETH transferred
-        require(msg.value != 0, "Transaction has no Eth");
-
-        // Convert ETH amount to destToken amount
-        // Note that some precision might be truncated if you go from higher decimal to lower decimals
-        uint ethDecimals = 18;
-        uint destDecimals = _destToken.decimals(); 
-        uint destQty = msg.value.mul(destDecimals).div(ethDecimals); 
-
-        // Check that there is sufficient destToken balance in OML
-        require(_destToken.balanceOf(address(this)) > destQty, "Insufficient tokens in OML for transfer");
-        
-        // Transfer destToken to destAddress
-        _destToken.safeTransfer(_destAddress, destQty);
-
-        // Log the event
-        emit Trade(_creator, _destAddress, ETH_TOKEN_ADDRESS, _destToken, msg.value, destQty);
-    }
-
-    /**
      * @dev Swap the user's ERC20 token to ETH
+     * @param _creator creator of the order
      * @param _srcToken source token contract address
      * @param _srcQty amount of source tokens
      * @param _destAddress address to send dca-ed ETH to
      */
+    //  Todo: Deduct fees before you send eth back.
     function swapTokenToEth(
         address _creator,
         address payable _destAddress,
         ERC20Detailed _srcToken,
         uint _srcQty
     ) internal {
-        // uint minConversionRate;
-        // uint destQty;
-
-        // // Check that the token transferFrom has succeeded
-        // _srcToken.safeTransferFrom(msg.sender, address(this), _srcQty);
-
-        // // Mitigate ERC20 Approve front-running attack, by initially setting
-        // // allowance to 0
-        // _srcToken.safeApprove(address(kyberNetworkProxyContract), 0);
-
-        // // Set the spender's token allowance to tokenQty
-        // _srcToken.safeApprove(address(kyberNetworkProxyContract), _srcQty);
-
-        // // Get the minimum conversion rate
-        // (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(_srcToken, ETH_TOKEN_ADDRESS, _srcQty);
-
-        // // Swap the ERC20 token to ETH and send to destination address
-        // destQty = kyberNetworkProxyContract.tradeWithHint(
-        //     _srcToken,
-        //     _srcQty,
-        //     ETH_TOKEN_ADDRESS,
-        //     _destAddress,
-        //     MAX_QTY,
-        //     minConversionRate,
-        //     WALLET_ID,
-        //     HINT
-        // );
-
         // Check that the srcToken transferFrom has succeeded
         _srcToken.safeTransferFrom(_creator, address(this), _srcQty);
         
@@ -470,8 +363,142 @@ contract OrderManagerLogic is Withdrawable {
         require(_destAddress.send(destQty), "ETH transf Per failed");
 
         // Log the event
-        emit Trade(msg.sender, _destAddress, _srcToken, ETH_TOKEN_ADDRESS, _srcQty, destQty);
+        emit Trade(_creator, _destAddress, _srcToken, ETH_TOKEN_ADDRESS, _srcQty, destQty);
     }
+
+    // /**
+    //  * @dev Swap the user's ERC20 token to another ERC20 token / ETH
+    //  * @param _creator creator of the order
+    //  * @param _srcToken source token contract address
+    //  * @param _srcQty amount of source tokens
+    //  * @param _destToken destination token contract address
+    //  * @param _destAddress address to send dca-ed tokens to
+    //  */
+    // function swapTokenToToken(
+    //     address _creator,
+    //     address payable _destAddress,
+    //     ERC20Detailed _srcToken,
+    //     uint _srcQty,
+    //     ERC20Detailed _destToken
+    // ) internal {
+    //     uint minConversionRate;
+    //     uint destQty;
+
+    //     // Check that the token transferFrom has succeeded
+    //     _srcToken.safeTransferFrom(msg.sender, address(this), _srcQty);
+
+    //     // Mitigate ERC20 Approve front-running attack, by initially setting
+    //     // allowance to 0
+    //     _srcToken.safeApprove(address(kyberNetworkProxyContract), 0);
+
+    //     // Set the spender's token allowance to tokenQty
+    //     _srcToken.safeApprove(address(kyberNetworkProxyContract), _srcQty);
+
+    //     // Get the minimum conversion rate
+    //     (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(
+    //         _srcToken,
+    //         _destToken,
+    //         _srcQty
+    //     );
+
+    //     // Swap the ERC20 token to ERC20 token / ETH and send to destAddress
+    //     destQty = kyberNetworkProxyContract.tradeWithHint(
+    //         _srcToken,
+    //         _srcQty,
+    //         _destToken,
+    //         _destAddress,
+    //         MAX_QTY,
+    //         minConversionRate,
+    //         WALLET_ID,
+    //         HINT
+    //     );
+
+    //     // Log the event
+    //     emit Trade(_creator, _destAddress, _srcToken, _destToken, _srcQty, destQty);
+    // }
+
+    // /**
+    //  * @dev Swap the user's ETH to ERC20 token
+    //  * @param _creator creator of the order
+    //  * @param _destToken destination token contract address
+    //  * @param _destAddress address to send dca-ed tokens to
+    //  */
+    // function swapEthToToken(
+    //     address _creator,
+    //     address payable _destAddress,
+    //     ERC20Detailed _destToken
+    // ) internal {
+    //     require(msg.value != 0, "Transaction has no Eth");
+    //     uint minConversionRate;
+    //     uint destQty;
+
+    //     // Get the minimum conversion rate
+    //     (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(
+    //         ETH_TOKEN_ADDRESS,
+    //         _destToken,
+    //         msg.value
+    //     );
+
+    //     // Swap the ETH to ERC20 token and send to destination address
+    //     destQty = kyberNetworkProxyContract.tradeWithHint.value(msg.value)(
+    //         ETH_TOKEN_ADDRESS,
+    //         msg.value,
+    //         _destToken,
+    //         _destAddress,
+    //         MAX_QTY,
+    //         minConversionRate,
+    //         WALLET_ID,
+    //         HINT
+    //     );
+
+    //     // Log the event
+    //     emit Trade(_creator, _destAddress, ETH_TOKEN_ADDRESS, _destToken, msg.value, destQty);
+    // }
+
+    // /**
+    //  * @dev Swap the user's ERC20 token to ETH
+    //  * @param _creator creator of the order
+    //  * @param _srcToken source token contract address
+    //  * @param _srcQty amount of source tokens
+    //  * @param _destAddress address to send dca-ed ETH to
+    //  */
+    // function swapTokenToEth(
+    //     address _creator,
+    //     address payable _destAddress,
+    //     ERC20Detailed _srcToken,
+    //     uint _srcQty
+    // ) internal {
+    //     uint minConversionRate;
+    //     uint destQty;
+
+    //     // Check that the token transferFrom has succeeded
+    //     _srcToken.safeTransferFrom(msg.sender, address(this), _srcQty);
+
+    //     // Mitigate ERC20 Approve front-running attack, by initially setting
+    //     // allowance to 0
+    //     _srcToken.safeApprove(address(kyberNetworkProxyContract), 0);
+
+    //     // Set the spender's token allowance to tokenQty
+    //     _srcToken.safeApprove(address(kyberNetworkProxyContract), _srcQty);
+
+    //     // Get the minimum conversion rate
+    //     (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(_srcToken, ETH_TOKEN_ADDRESS, _srcQty);
+
+    //     // Swap the ERC20 token to ETH and send to destination address
+    //     destQty = kyberNetworkProxyContract.tradeWithHint(
+    //         _srcToken,
+    //         _srcQty,
+    //         ETH_TOKEN_ADDRESS,
+    //         _destAddress,
+    //         MAX_QTY,
+    //         minConversionRate,
+    //         WALLET_ID,
+    //         HINT
+    //     );
+
+    //     // Log the event
+    //     emit Trade(msg.sender, _destAddress, _srcToken, ETH_TOKEN_ADDRESS, _srcQty, destQty);
+    // }
 
 
 }
