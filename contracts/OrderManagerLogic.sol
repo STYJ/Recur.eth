@@ -380,7 +380,7 @@ contract OrderManagerLogic is Withdrawable {
     //     ERC20Detailed _srcToken,
     //     uint _srcQty,
     //     ERC20Detailed _destToken
-    // ) internal {
+    // ) public {
     //     uint minConversionRate;
     //     uint destQty;
 
@@ -427,7 +427,7 @@ contract OrderManagerLogic is Withdrawable {
     //     address _creator,
     //     address payable _destAddress,
     //     ERC20Detailed _destToken
-    // ) internal {
+    // ) public payable {
     //     require(msg.value != 0, "Transaction has no Eth");
     //     uint minConversionRate;
     //     uint destQty;
@@ -467,7 +467,7 @@ contract OrderManagerLogic is Withdrawable {
     //     address payable _destAddress,
     //     ERC20Detailed _srcToken,
     //     uint _srcQty
-    // ) internal {
+    // ) public {
     //     uint minConversionRate;
     //     uint destQty;
 
@@ -497,7 +497,7 @@ contract OrderManagerLogic is Withdrawable {
     //     );
 
     //     // Log the event
-    //     emit Trade(msg.sender, _destAddress, _srcToken, ETH_TOKEN_ADDRESS, _srcQty, destQty);
+    //     emit Trade(_creator, _destAddress, _srcToken, ETH_TOKEN_ADDRESS, _srcQty, destQty);
     // }
 
 
