@@ -360,7 +360,7 @@ contract OrderManagerLogic is Withdrawable {
         require(address(this).balance > destQty, "Insufficient ETH in OML for transfer");
 
         // Transfer ETH to destAddress
-        require(_destAddress.send(destQty), "ETH transf Per failed");
+        require(_destAddress.send(destQty), "ETH transfer failed");
 
         // Log the event
         emit Trade(_creator, _destAddress, _srcToken, ETH_TOKEN_ADDRESS, _srcQty, destQty);

@@ -29,6 +29,7 @@ function txEth(result, call) {
   console.log(`   > transaction hash: ${result.transactionHash}`);
   console.log(`   > contract address: ${result.to ? result.to : result.contractAddress}`);
   console.log(`   > gas used: ${result.gasUsed}`);
+  console.log(`   > event: none`);
   console.log();
 }
 
