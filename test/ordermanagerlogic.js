@@ -53,17 +53,44 @@ contract("OrderManagerLogic", accounts => {
         );
     });
 
-    // it("Check that global variables in OML contract are updated correctly", async() => {
+    it("Check that the previously created order is stored correctly in OML contract", async() => {        
+        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
+        const expectedOrder = {
+            orderId: new BN(0).toString(),
+            creator: userA,
+            recipient: userB,
+            srcToken: tokenOne.address,
+            destToken: tokenTwo.address,
+            srcQty: new BN(1000).mul(new BN(10).pow(new BN(6))).toString(),
+            numTradesLeft: new BN(5).toString(),
+            minBlockInterval: new BN(9).toString(),
+            lastBlockNumber: await web3.eth.getBlockNumber(),
+            maxGasPrice: new BN(10).toString(),
+            active: true,
+        }
+        const order = await oml.allOrders.call(orderId);
+
+        Object.keys(expectedOrder).forEach(key => {
+            assert.equal(
+                order[key],
+                expectedOrder[key],
+                `The ${key} of the order with id ${orderId} does not match the expected ${key}!`
+            )
+        })
+    });
+
+    // it("Check that the previously created order is stored correctly in OML contract", async() => {
     //     // Order[] public allOrders;                           // All orders in existence
     //     // uint public numOrdersCreated;                       // Identifier for each order (increment only)
     //     // mapping(address => Order[]) public myOrders;        // Mapping from sender to sender's orders
     //     // mapping(address => uint256) public myOrdersCount;   // Mapping from sender to number of sender's orders
     //     // mapping(uint256 => uint256) public myOrdersIndex;   // Mapping from orderId to index in myOrders array
     //     // mapping(uint256 => address) public orderOwner;      // Mapping from orderId to sender
-    //     // mapping(address => uint256) public gasBalances;   
-
+    //     // mapping(address => uint256) public gasBalances;
+        
+    //     const orderId = 0;
     //     const expectedOrder = {
-    //         orderId: new BN(0),
+    //         orderId: new BN(orderId),
     //         creator: userA,
     //         recipient: userB,
     //         srcToken: tokenOne.address,
@@ -75,29 +102,19 @@ contract("OrderManagerLogic", accounts => {
     //         maxGasPrice: new BN(10),
     //         active: true,
     //     }
-    //     const order = await oml.allOrders.call(0);
+    //     const order = await oml.allOrders.call(orderId);
 
-    //     // Need to delete duplicated key-value pairs
-    //     delete order[0];
-    //     delete order[1];
-    //     delete order[2];
-    //     delete order[3];
-    //     delete order[4];
-    //     delete order[5];
-    //     delete order[6];
-    //     delete order[7];
-    //     delete order[8];
-    //     delete order[9];
-    //     delete order[10];
     //     assert.equal(
-    //         order,
-    //         expectedOrder,
-    //         `Order created on smart contract does not match the expected order!`
+    //         order["creator"],
+    //         expectedOrder["creator"],
+    //         `Creator of order with orderId of ${orderId} stored on smart contract does not match the expected order id!`
     //     )
+
+
     // });
 
     it("Non owner cannot deactivate order", async () => {
-        const orderId = (await oml.myOrdersCount.call(userA)).sub(new BN(1));
+        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
         try {
             await oml.deactivateOrder(orderId, { from: admin });
             assert.fail(
@@ -112,7 +129,7 @@ contract("OrderManagerLogic", accounts => {
     });
 
     it("Owner can deactivate order", async () => {
-        const orderId = (await oml.myOrdersCount.call(userA)).sub(new BN(1));
+        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
         try {
             await oml.deactivateOrder(orderId, { from: userA });
         } catch (err) {
@@ -129,7 +146,7 @@ contract("OrderManagerLogic", accounts => {
     });
 
     it("Cannot trigger trade if order is deactivated", async () => {
-        const orderId = (await oml.myOrdersCount.call(userA)).sub(new BN(1));
+        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
         try {
             await oml.triggerTrade(orderId, { from: admin });
             assert.fail("Trade was triggered even though order is inactive!");
@@ -142,7 +159,7 @@ contract("OrderManagerLogic", accounts => {
     });
 
     it("Non owner cannot reactivate order", async () => {
-        const orderId = (await oml.myOrdersCount.call(userA)).sub(new BN(1));
+        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
         try {
             await oml.reactivateOrder(orderId, { from: admin });
             assert.fail(
@@ -157,7 +174,7 @@ contract("OrderManagerLogic", accounts => {
     });
 
     it("Owner can reactivate order", async () => {
-        const orderId = (await oml.myOrdersCount.call(userA)).sub(new BN(1));
+        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
         try {
             await oml.reactivateOrder(orderId, { from: userA });
         } catch (err) {
@@ -174,8 +191,7 @@ contract("OrderManagerLogic", accounts => {
     });
 
     it("Cannot trigger trade if insufficient allowance given to OML", async () => {
-        const orderId = (await oml.myOrdersCount.call(userA)).sub(new BN(1));
-
+        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
          // Reset allowance to 0
         const amt = new BN(0);
         try {
@@ -229,7 +245,7 @@ contract("OrderManagerLogic", accounts => {
     });
 
     it("Cannot trigger trade if min block interval has not passed", async () => {
-        const orderId = (await oml.myOrdersCount.call(userA)).sub(new BN(1));
+        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
         try {
             await oml.triggerTrade(orderId, { from: admin });
             assert.fail(
@@ -244,7 +260,7 @@ contract("OrderManagerLogic", accounts => {
     });
 
     it("Can trigger trade if min block interval has passed", async () => {
-        const orderId = (await oml.myOrdersCount.call(userA)).sub(new BN(1));
+        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
         try {
             await oml.triggerTrade(orderId, { from: admin });
         } catch (err) {
