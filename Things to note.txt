@@ -1,5 +1,6 @@
 Considerations
 - What if I tried to DCA and it failed? Solution: Monitor price on Kyber before you broadcast and you only take gas from enduser if the trade passes
+- if min block order is too low, can ddos server since i have to keep querying
 
 ToDo
 - Need function to calculate gas

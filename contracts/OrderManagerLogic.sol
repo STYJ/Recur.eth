@@ -68,7 +68,7 @@ contract OrderManagerLogic is Withdrawable {
     modifier onlyOrderOwner(uint orderId) { // Modifier
         require(
             msg.sender == orderOwner[orderId],
-            "Only owner of the order can call this."
+            "Only the owner of this order can configure it!"
         );
         _;
     }
@@ -98,16 +98,18 @@ contract OrderManagerLogic is Withdrawable {
         uint _minBlockInterval,
         uint _maxGasPrice
     ) public returns (uint) {
-        require(_recipient != address(0), "Recipient cannot be the null address");
-        require(address(_srcToken) != address(0), "SrcToken cannot be the null address");
-        require(address(_destToken) != address(0), "Dest  cannot be the null address");
-        require(_srcQty > 0, "SrcQty is too low.");
-        require(_numTradesLeft > 0, "Number of trades left is too low.");
-        require(_minBlockInterval > 0, "Min number of blocks between trades is too low.");
-        require(_maxGasPrice > 0, "Max gas price is too low.");
+        require(_recipient != address(0), "Recipient cannot be the null address!");
+        require(address(_srcToken) != address(0), "SrcToken cannot be the null address!");
+        require(address(_destToken) != address(0), "DestToken cannot be the null address!");
+        require(_srcQty > 0, "SrcQty is too low!");
+        require(_numTradesLeft > 0, "Number of trades left is too low!");
+        require(_minBlockInterval > 0, "Min number of blocks between trades is too low!");
+        require(_maxGasPrice > 0, "Max gas price is too low!");
+
+        uint orderId = numOrdersCreated;
 
         Order memory newOrder = Order(
-            numOrdersCreated,                           // orderId
+            orderId,                                    // orderId
             msg.sender,                                 // creator
             _recipient,                                 // recipient
             _srcToken,                                  // srcToken
@@ -127,13 +129,13 @@ contract OrderManagerLogic is Withdrawable {
         myOrders[msg.sender].push(newOrder);
 
         // Track index of newOrder in myOrders array
-        myOrdersIndex[numOrdersCreated] = myOrdersCount[msg.sender];
+        myOrdersIndex[orderId] = myOrdersCount[msg.sender];
 
         // Incrementing my number of orders
         myOrdersCount[msg.sender] ++;
 
         // Tracking owner of order
-        orderOwner[numOrdersCreated] = msg.sender;
+        orderOwner[orderId] = msg.sender;
 
         // Incrementing number of orders
         numOrdersCreated ++;
@@ -142,33 +144,41 @@ contract OrderManagerLogic is Withdrawable {
 
 
         // Log the order creation event
-        emit OrderCreated(numOrdersCreated.sub(1), msg.sender);
-
+        emit OrderCreated(orderId, msg.sender);
+        
         // Return the orderId
-        return numOrdersCreated.sub(1);
+        return orderId;
     }
 
+    event gasCost(
+        uint indexed orderId,
+        uint indexed gasUsed
+    );
+
     function triggerTrade(uint _orderId) public {
+        // Get initial gas balance
+        uint initialGas = gasleft();
+
         // Check that order is still active
         Order memory order = allOrders[_orderId];
-        require(order.active, "Order is inactive.");
+        require(order.active, "Order is inactive!");
 
         // Check that allowance is sufficient
         require(order.srcToken.allowance(
             order.creator, address(this)) > order.srcQty,
-            "Insufficient token allowance"
+            "Insufficient token allowance!"
         );
 
         // Check min block interval has passed
         require(
             order.lastBlockNumber.add(order.minBlockInterval) < block.number,
-            "Min block interval has not passed"
+            "Min block interval has not passed!"
         );
 
         // Check that numTradesLeft is more than 0
         require(
             order.numTradesLeft > 0,
-            "Order numTradesLeft needs to be greater than 0"
+            "Order numTradesLeft needs to be greater than 0!"
         );
 
         // Check that there's sufficient gas balance and transfer gas to me
@@ -188,10 +198,11 @@ contract OrderManagerLogic is Withdrawable {
             // Shouldn't be able to reach here
             revert("srcToken and destToken are both ETH!");
         }
-        
-        // // Normally you'd do an action here but for this, I will just try to transfer some tokens
-        // order.srcToken.safeTransferFrom(order.creator, address(this), order.srcQty);
 
+        // Get gas remaining
+        uint remainingGas = gasleft();       
+        
+        emit gasCost(_orderId, initialGas - remainingGas);
 
     }
 
@@ -205,13 +216,13 @@ contract OrderManagerLogic is Withdrawable {
         uint _minBlockInterval,
         uint _maxGasPrice
     ) public onlyOrderOwner(_orderId) {
-        require(_recipient != address(0), "Recipient cannot be the null address");
-        require(address(_srcToken) != address(0), "SrcToken cannot be the null address");
-        require(address(_destToken) != address(0), "Dest  cannot be the null address");
-        require(_srcQty > 0, "SrcQty is too low.");
-        require(_numTradesLeft > 0, "Number of trades left is too low.");
-        require(_minBlockInterval > 0, "Min number of blocks between trades is too low.");
-        require(_maxGasPrice > 0, "Max gas price is too low.");
+        require(_recipient != address(0), "Recipient cannot be the null address!");
+        require(address(_srcToken) != address(0), "SrcToken cannot be the null address!");
+        require(address(_destToken) != address(0), "DestToken cannot be the null address!");
+        require(_srcQty > 0, "SrcQty is too low!");
+        require(_numTradesLeft > 0, "Number of trades left is too low!");
+        require(_minBlockInterval > 0, "Min number of blocks between trades is too low!");
+        require(_maxGasPrice > 0, "Max gas price is too low!");
 
         Order memory newOrder = Order(
             _orderId,                                   // orderId
@@ -268,8 +279,6 @@ contract OrderManagerLogic is Withdrawable {
         emit OrderDeactivated(_orderId, msg.sender);
     }
 
-    // Create a function to add gas
-
     // Create function to calculate average gas
     // https://ethereum.stackexchange.com/questions/48331/show-gas-used-in-solidity
 
@@ -284,7 +293,7 @@ contract OrderManagerLogic is Withdrawable {
     bytes constant constant HINT = "";
 
     /* Variables */
-   KyberNetworkProxyInterface public kyberNetworkProxyContract; // KyberNetworkProxy contract
+    KyberNetworkProxyInterface public kyberNetworkProxyContract; // KyberNetworkProxy contract
 
     /* Events */
     event Trade(
@@ -324,7 +333,7 @@ contract OrderManagerLogic is Withdrawable {
         uint destQty = _srcQty.mul(destDecimals).div(srcDecimals);    // Note that some precision might be truncated if you go from higher decimal to lower decimals
         
         // Check that there is sufficient destToken balance in OML
-        require(_destToken.balanceOf(address(this)) > destQty, "Insufficient tokens in OML for transfer");
+        require(_destToken.balanceOf(address(this)) > destQty, "Insufficient tokens in OML for transfer!");
         
         // Transfer destToken to destAddress
         _destToken.safeTransfer(_destAddress, destQty);
@@ -357,10 +366,10 @@ contract OrderManagerLogic is Withdrawable {
         uint destQty = _srcQty.mul(ethDecimals).div(srcDecimals);    // Note that some precision might be truncated if you go from higher decimal to lower decimals
         
         // Check that there is sufficient ETH balance in OML        
-        require(address(this).balance > destQty, "Insufficient ETH in OML for transfer");
+        require(address(this).balance > destQty, "Insufficient ETH in OML for transfer!");
 
         // Transfer ETH to destAddress
-        require(_destAddress.send(destQty), "ETH transfer failed");
+        require(_destAddress.send(destQty), "ETH transfer failed!");
 
         // Log the event
         emit Trade(_creator, _destAddress, _srcToken, ETH_TOKEN_ADDRESS, _srcQty, destQty);
@@ -428,7 +437,7 @@ contract OrderManagerLogic is Withdrawable {
     //     address payable _destAddress,
     //     ERC20Detailed _destToken
     // ) public payable {
-    //     require(msg.value != 0, "Transaction has no Eth");
+    //     require(msg.value != 0, "Transaction has no Eth!");
     //     uint minConversionRate;
     //     uint destQty;
 
