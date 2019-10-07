@@ -5,7 +5,7 @@ const Helper = require("./helper.js");
 const OrderManagerLogic = artifacts.require("OrderManagerLogic");
 const TestTokenOne = artifacts.require("TestTokenOne");
 const TestTokenTwo = artifacts.require("TestTokenTwo");
-const EthTokenAddress = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+const EthTokenAddress = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 const TokenConfig = JSON.parse(fs.readFileSync("./config/tokens.json", "utf8"));
 
 contract("OrderManagerLogic", accounts => {
@@ -46,14 +46,10 @@ contract("OrderManagerLogic", accounts => {
         );
 
         const numOrders = await oml.myOrdersCount.call(userA);
-        assert.equal(
-            numOrders.toNumber(),
-            1,
-            "Order creation failed!"
-        );
+        assert.equal(numOrders.toNumber(), 1, "Order creation failed!");
     });
 
-    it("Check that the previously created order is stored correctly in OML contract", async() => {        
+    it("Check that the previously created order is stored correctly in OML contract", async () => {
         const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
         const expectedOrder = {
             orderId: new BN(0).toString(),
@@ -66,52 +62,63 @@ contract("OrderManagerLogic", accounts => {
             minBlockInterval: new BN(9).toString(),
             lastBlockNumber: await web3.eth.getBlockNumber(),
             maxGasPrice: new BN(10).toString(),
-            active: true,
-        }
-        const order = await oml.allOrders.call(orderId);
+            active: true
+        };
+        const globalOrder = await oml.allOrders.call(orderId);
 
         Object.keys(expectedOrder).forEach(key => {
             assert.equal(
-                order[key],
+                globalOrder[key],
                 expectedOrder[key],
                 `The ${key} of the order with id ${orderId} does not match the expected ${key}!`
-            )
-        })
+            );
+        });
+
+        const myOrder = await oml.myOrders.call(userA, orderId);
+
+        Object.keys(expectedOrder).forEach(key => {
+            assert.equal(
+                myOrder[key],
+                expectedOrder[key],
+                `The ${key} of the order with id ${orderId} does not match the expected ${key}!`
+            );
+        });
     });
 
-    // it("Check that the previously created order is stored correctly in OML contract", async() => {
-    //     // Order[] public allOrders;                           // All orders in existence
-    //     // uint public numOrdersCreated;                       // Identifier for each order (increment only)
-    //     // mapping(address => Order[]) public myOrders;        // Mapping from sender to sender's orders
-    //     // mapping(address => uint256) public myOrdersCount;   // Mapping from sender to number of sender's orders
-    //     // mapping(uint256 => uint256) public myOrdersIndex;   // Mapping from orderId to index in myOrders array
-    //     // mapping(uint256 => address) public orderOwner;      // Mapping from orderId to sender
-    //     // mapping(address => uint256) public gasBalances;
-        
-    //     const orderId = 0;
-    //     const expectedOrder = {
-    //         orderId: new BN(orderId),
-    //         creator: userA,
-    //         recipient: userB,
-    //         srcToken: tokenOne.address,
-    //         destToken: tokenTwo.address,
-    //         srcQty: new BN(1000).mul(new BN(10).pow(new BN(6))),
-    //         numTradesLeft: new BN(5),
-    //         minBlockInterval: new BN(9),
-    //         lastBlockNumber: new BN(await web3.eth.getBlockNumber()),
-    //         maxGasPrice: new BN(10),
-    //         active: true,
-    //     }
-    //     const order = await oml.allOrders.call(orderId);
+    it("Check that the variables in the OML contract are updated correctly after order was created", async () => {
+        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
 
-    //     assert.equal(
-    //         order["creator"],
-    //         expectedOrder["creator"],
-    //         `Creator of order with orderId of ${orderId} stored on smart contract does not match the expected order id!`
-    //     )
+        const numOrdersCreated = await oml.numOrdersCreated.call();
+        const myOrdersCount = await oml.myOrdersCount.call(userA);
+        const myOrdersIndex = await oml.myOrdersIndex.call(orderId);
+        const orderOwner = await oml.orderOwner.call(orderId);
 
+        const expectedNumOrdersCreated = 1;
+        const expectedMyOrdersCount = 1;
+        const expectedMyOrdersIndex = 0;
+        const expectedOrderOwner = userA;
 
-    // });
+        assert.equal(
+            numOrdersCreated,
+            expectedNumOrdersCreated,
+            `Number of orders created does not match the expected number of orders created!`
+        );
+        assert.equal(
+            myOrdersCount,
+            expectedMyOrdersCount,
+            `My orders count does not match the expected my orders count!`
+        );
+        assert.equal(
+            myOrdersIndex,
+            expectedMyOrdersIndex,
+            `My orders index does not match the expected my orders index!`
+        );
+        assert.equal(
+            orderOwner,
+            expectedOrderOwner,
+            `Owner of order does not match the expected owner of order!`
+        );
+    });
 
     it("Non owner cannot deactivate order", async () => {
         const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
@@ -192,7 +199,7 @@ contract("OrderManagerLogic", accounts => {
 
     it("Cannot trigger trade if insufficient allowance given to OML", async () => {
         const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
-         // Reset allowance to 0
+        // Reset allowance to 0
         const amt = new BN(0);
         try {
             await tokenOne.approve(oml.address, amt.toString(), {
@@ -208,7 +215,7 @@ contract("OrderManagerLogic", accounts => {
         assert.equal(
             allowance.toString(),
             amt.toString(),
-            `OML's allowance of ${allowance.toString()} does not match what userA approved of ${amt.toString()}`
+            `OML's allowance of does not match the expected amount of allowance that was approved!`
         );
 
         try {
@@ -240,7 +247,7 @@ contract("OrderManagerLogic", accounts => {
         assert.equal(
             allowance.toString(),
             amt.toString(),
-            `OML's allowance of ${allowance.toString()} does not match what userA approved of ${amt.toString()}`
+            `OML's allowance of does not match the expected amount of allowance that was approved!`
         );
     });
 
@@ -292,10 +299,6 @@ contract("OrderManagerLogic", accounts => {
         );
 
         const numOrders = await oml.myOrdersCount.call(userB);
-        assert.equal(
-            numOrders.toNumber(),
-            1,
-            "Order creation failed!"
-        );
+        assert.equal(numOrders.toNumber(), 1, "Order creation failed!");
     });
 });
