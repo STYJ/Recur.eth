@@ -245,13 +245,6 @@ contract("OrderManagerLogic", accounts => {
 
     it("Can trigger trade if min block interval has passed", async () => {
         const orderId = (await oml.myOrdersCount.call(userA)).sub(new BN(1));
-        const order = await oml.myOrders.call(userA, orderId);
-        const srcQty = order["srcQty"];
-        const balanceBeforeTradeOML = await tokenOne.balanceOf.call(
-            oml.address
-        );
-        const balanceBeforeTradeUserA = await tokenOne.balanceOf.call(userA);
-
         try {
             await oml.triggerTrade(orderId, { from: admin });
         } catch (err) {
@@ -260,24 +253,6 @@ contract("OrderManagerLogic", accounts => {
                 `Expected no error, got ${err} instead!`
             );
         }
-
-        const balanceAfterTradeOML = await tokenOne.balanceOf.call(oml.address);
-        const balanceAfterTradeUserA = await tokenOne.balanceOf.call(userA);
-
-        const expectedBalanceOML = balanceBeforeTradeOML.add(srcQty);
-        const expectedBalanceUserA = balanceBeforeTradeUserA.sub(srcQty);
-
-        assert.equal(
-            balanceAfterTradeOML.toString(),
-            expectedBalanceOML.toString(),
-            `OML's balance is incorrect, expected ${expectedBalanceOML.toString()} but got ${balanceAfterTradeOML.toString()} instead.`
-        );
-
-        assert.equal(
-            balanceAfterTradeUserA.toString(),
-            expectedBalanceUserA.toString(),
-            `UserA's balance is incorrect, expected ${expectedBalanceOML.toString()} but got ${balanceAfterTradeOML.toString()} instead.`
-        );
     });
 
     it("Token to eth order can be created", async () => {
