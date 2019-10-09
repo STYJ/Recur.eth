@@ -140,20 +140,12 @@ contract OrderManagerLogic is Withdrawable {
         // Incrementing number of orders
         numOrdersCreated ++;
 
-        // Need to also add any msg.value as gas balance.
-
-
         // Log the order creation event
         emit OrderCreated(orderId, msg.sender);
         
         // Return the orderId
         return orderId;
     }
-
-    event gasCost(
-        uint indexed orderId,
-        uint indexed gasUsed
-    );
 
     function triggerTrade(uint _orderId) public {
         // Get initial gas balance
@@ -163,31 +155,36 @@ contract OrderManagerLogic is Withdrawable {
         Order memory order = allOrders[_orderId];
         require(order.active, "Order is inactive!");
 
-        // Check that allowance is sufficient
-        require(order.srcToken.allowance(
-            order.creator, address(this)) > order.srcQty,
-            "Insufficient token allowance!"
-        );
-
         // Check min block interval has passed
         require(
-            order.lastBlockNumber.add(order.minBlockInterval) < block.number,
+            block.number > order.lastBlockNumber.add(order.minBlockInterval),
             "Min block interval has not passed!"
         );
 
         // Check that numTradesLeft is more than 0
         require(
             order.numTradesLeft > 0,
-            "Order numTradesLeft needs to be greater than 0!"
+            "NumTradesLeft needs to be greater than 0!"
         );
 
-        // Check that there's sufficient gas balance and transfer gas to me
+        // Check that allowance is sufficient
+        require(order.srcToken.allowance(
+            order.creator, address(this)) > order.srcQty,
+            "Insufficient token allowance!"
+        );
 
-        // Reduce numTradesLeft n stuff
+        // Check that balance is sufficient
+        require(order.srcToken.allowance(
+            order.creator, address(this)) > order.srcQty,
+            "Insufficient token allowance!"
+        );
+
+        // Update numTradesLeft and lastBlockNumber
+        allOrders[_orderId].numTradesLeft --;
+        allOrders[_orderId].lastBlockNumber = block.number;
+
 
         // Check user balance and execute trade the trade?
-
-
         if(order.srcToken != ETH_TOKEN_ADDRESS && order.destToken != ETH_TOKEN_ADDRESS) {
             swapTokenToToken(order.creator, order.recipient, order.srcToken, order.srcQty, order.destToken);
         } else if(order.srcToken != ETH_TOKEN_ADDRESS && order.destToken == ETH_TOKEN_ADDRESS) {
@@ -202,10 +199,15 @@ contract OrderManagerLogic is Withdrawable {
         // Get gas remaining
         uint remainingGas = gasleft();       
         
-        emit gasCost(_orderId, initialGas - remainingGas);
-
+        // Update total gas costs
+        totalGasCosts.add(initialGas.sub(remainingGas));                      
+        numTradesCompleted.add(1);  
     }
 
+    function calculateAverageGas() public view returns (uint) {
+        return totalGasCosts.div(numTradesCompleted);
+    }
+    
     function updateOrder(
         uint _orderId,
         address payable _recipient,

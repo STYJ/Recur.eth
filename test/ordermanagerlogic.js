@@ -30,8 +30,8 @@ contract("OrderManagerLogic", accounts => {
         const srcToken = tokenOne.address;
         const destToken = tokenTwo.address;
         const srcQty = new BN(1000).mul(new BN(10).pow(new BN(6))); // 1000 tokenOnes per trade
-        const numTrades = 5;
-        const minBlockInterval = 9;
+        const numTradesLeft = 1;
+        const minBlockInterval = 8;
         const maxGasPrice = 10;
 
         await oml.createOrder(
@@ -39,7 +39,7 @@ contract("OrderManagerLogic", accounts => {
             srcToken,
             destToken,
             srcQty,
-            numTrades,
+            numTradesLeft,
             minBlockInterval,
             maxGasPrice,
             { from: userA }
@@ -58,8 +58,8 @@ contract("OrderManagerLogic", accounts => {
             srcToken: tokenOne.address,
             destToken: tokenTwo.address,
             srcQty: new BN(1000).mul(new BN(10).pow(new BN(6))).toString(),
-            numTradesLeft: new BN(5).toString(),
-            minBlockInterval: new BN(9).toString(),
+            numTradesLeft: new BN(1).toString(),
+            minBlockInterval: new BN(8).toString(),
             lastBlockNumber: await web3.eth.getBlockNumber(),
             maxGasPrice: new BN(10).toString(),
             active: true
@@ -128,6 +128,8 @@ contract("OrderManagerLogic", accounts => {
                 "Order was deactivated by someone who is not the owner!"
             );
         } catch (err) {
+            // It expected a revert but instead, it got assert.fail
+            // assert(expression, message to print if expression is false)
             assert(
                 Helper.isRevertErrorMessage(err),
                 `Expected revert, got ${err} instead!`
@@ -141,9 +143,9 @@ contract("OrderManagerLogic", accounts => {
             await oml.deactivateOrder(orderId, { from: userA });
         } catch (err) {
             assert(
-                Helper.isRevertErrorMessage(err),
+                false,
                 `Expected no error, got ${err} instead!`
-            );
+            )
         }
         const order = await oml.myOrders.call(userA, orderId);
         assert.isFalse(
@@ -186,7 +188,7 @@ contract("OrderManagerLogic", accounts => {
             await oml.reactivateOrder(orderId, { from: userA });
         } catch (err) {
             assert(
-                Helper.isRevertErrorMessage(err),
+                false,
                 `Expected no error, got ${err} instead!`
             );
         }
@@ -197,27 +199,23 @@ contract("OrderManagerLogic", accounts => {
         );
     });
 
-    it("Cannot trigger trade if insufficient allowance given to OML", async () => {
+    it("Cannot trigger trade if min block interval has not passed", async () => {
         const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
-        // Reset allowance to 0
-        const amt = new BN(0);
         try {
-            await tokenOne.approve(oml.address, amt.toString(), {
-                from: userA
-            });
+            await oml.triggerTrade(orderId, { from: admin });
+            assert.fail(
+                "Trade was triggered even though min block interval has not passed!"
+            );
         } catch (err) {
             assert(
                 Helper.isRevertErrorMessage(err),
-                `Expected no error, got ${err} instead!`
+                `Expected revert, got ${err} instead!`
             );
         }
-        const allowance = await tokenOne.allowance.call(userA, oml.address);
-        assert.equal(
-            allowance.toString(),
-            amt.toString(),
-            `OML's allowance of does not match the expected amount of allowance that was approved!`
-        );
+    });
 
+    it("Cannot trigger trade if insufficient allowance given to OML", async () => {
+        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
         try {
             await oml.triggerTrade(orderId, { from: admin });
             assert.fail(
@@ -239,7 +237,7 @@ contract("OrderManagerLogic", accounts => {
             });
         } catch (err) {
             assert(
-                Helper.isRevertErrorMessage(err),
+                false,
                 `Expected no error, got ${err} instead!`
             );
         }
@@ -251,34 +249,21 @@ contract("OrderManagerLogic", accounts => {
         );
     });
 
-    it("Cannot trigger trade if min block interval has not passed", async () => {
-        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
-        try {
-            await oml.triggerTrade(orderId, { from: admin });
-            assert.fail(
-                "Trade was triggered even though min block interval has not passed!"
-            );
-        } catch (err) {
-            assert(
-                Helper.isRevertErrorMessage(err),
-                `Expected revert, got ${err} instead!`
-            );
-        }
-    });
-
     it("Can trigger trade if min block interval has passed", async () => {
         const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
         try {
             await oml.triggerTrade(orderId, { from: admin });
         } catch (err) {
             assert(
-                Helper.isRevertErrorMessage(err),
+                false,
                 `Expected no error, got ${err} instead!`
             );
         }
     });
 
-    it("Token to eth order can be created", async () => {
+    
+
+    /* it("Token to eth order can be created", async () => {
         const recipient = userA;
         const srcToken = tokenTwo.address;
         const destToken = EthTokenAddress;
@@ -300,5 +285,5 @@ contract("OrderManagerLogic", accounts => {
 
         const numOrders = await oml.myOrdersCount.call(userB);
         assert.equal(numOrders.toNumber(), 1, "Order creation failed!");
-    });
+    }); */
 });
