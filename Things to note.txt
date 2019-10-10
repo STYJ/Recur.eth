@@ -4,6 +4,8 @@ Considerations
 
 ToDo
 - Need function to calculate gas
+- need to add test to check that variables actually decrease after trade was taken.
+- need to add test to check that trades cannot happen if minTradesLeft is 0
 - Split token to token trades into 2. Deduct gas from the ETH component. 
 - Create OrderManagerStorage contract
 - function to change KNP address. 
