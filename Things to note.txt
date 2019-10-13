@@ -3,9 +3,37 @@ Considerations
 - if min block order is too low, can ddos server since i have to keep querying
 
 ToDo
-- Need function to calculate gas
 - need to add test to check that variables actually decrease after trade was taken.
 - need to add test to check that trades cannot happen if minTradesLeft is 0
 - Split token to token trades into 2. Deduct gas from the ETH component. 
 - Create OrderManagerStorage contract
-- function to change KNP address. 
+- function to change KNP address.
+- create checklist of tasks to do. 
+
+
+functions
+- createOrder
+cannot create order if any conditions fail - done
+can create - done
+is added in sc correctly - done
+
+
+- trigger trade
+cannot trigger if any condition fail
+            re/de activate order
+                only owner can do
+                sc updated correctly
+can trigger if all conditions pass
+order updated correctly
+gas stored
+
+- update order
+only owner can update
+cannot update order if any conditions fail
+can update
+is updated in sc correctly
+
+
+
+- calculate average gas
+test it out

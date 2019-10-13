@@ -201,7 +201,7 @@ contract OrderManagerLogic is Withdrawable {
         
         // Update total gas costs
         totalGasCosts.add(initialGas.sub(remainingGas));                      
-        numTradesCompleted.add(1);  
+        numTradesCompleted.add(1);
     }
 
     function calculateAverageGas() public view returns (uint) {

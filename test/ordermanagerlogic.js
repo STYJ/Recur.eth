@@ -6,34 +6,290 @@ const OrderManagerLogic = artifacts.require("OrderManagerLogic");
 const TestTokenOne = artifacts.require("TestTokenOne");
 const TestTokenTwo = artifacts.require("TestTokenTwo");
 const EthTokenAddress = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+const NullAddress = "0x".padEnd(42, "0");
 const TokenConfig = JSON.parse(fs.readFileSync("./config/tokens.json", "utf8"));
 
 contract("OrderManagerLogic", accounts => {
     let admin;
     let userA;
     let userB;
+    let userC;
     let tokenOne;
     let tokenTwo;
     let oml;
+    let tokenToTokenNewOrder;
+    let tokenToTokenUpdatedOrder;
+    let ethToTokenNewOrder;
 
     it("Set up global variables", async () => {
         admin = accounts[0];
         userA = accounts[1];
         userB = accounts[2];
+        userC = accounts[3];
         tokenOne = await TestTokenOne.deployed();
         tokenTwo = await TestTokenTwo.deployed();
         oml = await OrderManagerLogic.deployed();
+        tokenToTokenNewOrder = {
+            creator: userA,
+            recipient: userB,
+            srcToken: tokenOne.address,
+            destToken: tokenTwo.address,
+            srcQty: new BN(100).mul(new BN(10).pow(new BN(6))), // 100 tokenOnes per trade
+            numTradesLeft: 5,
+            minBlockInterval: 8,
+            maxGasPrice: 10
+        };
+
+        tokenToTokenUpdatedOrder = {
+            creator: userA,
+            recipient: userC,
+            srcToken: tokenOne.address,
+            destToken: tokenTwo.address,
+            srcQty: new BN(1337).mul(new BN(10).pow(new BN(6))), // 1337 tokenOnes per trade
+            numTradesLeft: 1,
+            minBlockInterval: 1,
+            maxGasPrice: 1
+        };
+        ethToTokenNewOrder = {
+            creator: userB,
+            recipient: userA,
+            srcToken: tokenTwo.address,
+            destToken: EthTokenAddress,
+            srcQty: new BN(8).mul(new BN(10).pow(new BN(6))), // 8 tokenTwos per trade
+            numTrades: 2,
+            minBlockInterval: 1,
+            maxGasPrice: 4
+        };
+    });
+
+    it("Cannot create order if recipient is address(0)", async () => {
+        const {
+            creator,
+            srcToken,
+            destToken,
+            srcQty,
+            numTradesLeft,
+            minBlockInterval,
+            maxGasPrice
+        } = tokenToTokenNewOrder;
+
+        try {
+            await oml.createOrder(
+                NullAddress,
+                srcToken,
+                destToken,
+                srcQty,
+                numTradesLeft,
+                minBlockInterval,
+                maxGasPrice,
+                { from: creator }
+            );
+            assert.fail(`Order was created even though recipient is ${NullAddress}!`);
+        } catch (err) {
+            assert(
+                Helper.isRevertErrorMessage(err),
+                `Expected revert, got ${err} instead!`
+            );
+        }
+    });
+        
+    it("Cannot create order if srcToken is address(0)", async () => {
+        const {
+            creator,
+            recipient,
+            destToken,
+            srcQty,
+            numTradesLeft,
+            minBlockInterval,
+            maxGasPrice
+        } = tokenToTokenNewOrder;
+
+        try {
+            await oml.createOrder(
+                recipient,
+                NullAddress,
+                destToken,
+                srcQty,
+                numTradesLeft,
+                minBlockInterval,
+                maxGasPrice,
+                { from: creator }
+            );
+            assert.fail(`Order was created even though srcToken is ${NullAddress}!`);
+        } catch (err) {
+            assert(
+                Helper.isRevertErrorMessage(err),
+                `Expected revert, got ${err} instead!`
+            );
+        }
+    });
+
+    it("Cannot create order if destToken is address(0)", async () => {
+        const {
+            creator,
+            recipient,
+            srcToken,
+            srcQty,
+            numTradesLeft,
+            minBlockInterval,
+            maxGasPrice
+        } = tokenToTokenNewOrder;
+
+        try {
+            await oml.createOrder(
+                recipient,
+                srcToken,
+                NullAddress,
+                srcQty,
+                numTradesLeft,
+                minBlockInterval,
+                maxGasPrice,
+                { from: creator }
+            );
+            assert.fail(`Order was created even though destToken is ${NullAddress}!`);
+        } catch (err) {
+            assert(
+                Helper.isRevertErrorMessage(err),
+                `Expected revert, got ${err} instead!`
+            );
+        }
+    });
+
+    it("Cannot create order if srcQty <= 0", async () => {
+        const {
+            creator,
+            recipient,
+            srcToken,
+            destToken,
+            numTradesLeft,
+            minBlockInterval,
+            maxGasPrice
+        } = tokenToTokenNewOrder;
+
+        try {
+            await oml.createOrder(
+                recipient,
+                srcToken,
+                destToken,
+                new BN(0),
+                numTradesLeft,
+                minBlockInterval,
+                maxGasPrice,
+                { from: creator }
+            );
+            assert.fail(`Order was created even though srcQty is 0!`);
+        } catch (err) {
+            assert(
+                Helper.isRevertErrorMessage(err),
+                `Expected revert, got ${err} instead!`
+            );
+        }
+    });
+
+    it("Cannot create order if numTradesLeft <= 0", async () => {
+        const {
+            creator,
+            recipient,
+            srcToken,
+            destToken,
+            srcQty,
+            minBlockInterval,
+            maxGasPrice
+        } = tokenToTokenNewOrder;
+
+        try {
+            await oml.createOrder(
+                recipient,
+                srcToken,
+                destToken,
+                srcQty,
+                new BN(0),
+                minBlockInterval,
+                maxGasPrice,
+                { from: creator }
+            );
+            assert.fail(`Order was created even though numTradesLeft is 0!`);
+        } catch (err) {
+            assert(
+                Helper.isRevertErrorMessage(err),
+                `Expected revert, got ${err} instead!`
+            );
+        }
+    });
+
+    it("Cannot create order if minBlockInterval <= 0", async () => {
+        const {
+            creator,
+            recipient,
+            srcToken,
+            destToken,
+            srcQty,
+            numTradesLeft,
+            maxGasPrice
+        } = tokenToTokenNewOrder;
+
+        try {
+            await oml.createOrder(
+                recipient,
+                srcToken,
+                destToken,
+                srcQty,
+                numTradesLeft,
+                new BN(0),
+                maxGasPrice,
+                { from: creator }
+            );
+            assert.fail(`Order was created even though minBlockInterval is 0!`);
+        } catch (err) {
+            assert(
+                Helper.isRevertErrorMessage(err),
+                `Expected revert, got ${err} instead!`
+            );
+        }
+    });
+
+    it("Cannot create order if maxGasPrice <= 0", async () => {
+        const {
+            creator,
+            recipient,
+            srcToken,
+            destToken,
+            srcQty,
+            numTradesLeft,
+            minBlockInterval,
+        } = tokenToTokenNewOrder;
+
+        try {
+            await oml.createOrder(
+                recipient,
+                srcToken,
+                destToken,
+                srcQty,
+                numTradesLeft,
+                minBlockInterval,
+                new BN(0),
+                { from: creator }
+            );
+            assert.fail(`Order was created even though maxGasPrice is 0!`);
+        } catch (err) {
+            assert(
+                Helper.isRevertErrorMessage(err),
+                `Expected revert, got ${err} instead!`
+            );
+        }
     });
 
     it("Token to token order can be created", async () => {
-        const recipient = userB;
-        const srcToken = tokenOne.address;
-        const destToken = tokenTwo.address;
-        const srcQty = new BN(1000).mul(new BN(10).pow(new BN(6))); // 1000 tokenOnes per trade
-        const numTradesLeft = 1;
-        const minBlockInterval = 8;
-        const maxGasPrice = 10;
-
+        const {
+            creator,
+            recipient,
+            srcToken,
+            destToken,
+            srcQty,
+            numTradesLeft,
+            minBlockInterval,
+            maxGasPrice
+        } = tokenToTokenNewOrder;
         await oml.createOrder(
             recipient,
             srcToken,
@@ -42,7 +298,7 @@ contract("OrderManagerLogic", accounts => {
             numTradesLeft,
             minBlockInterval,
             maxGasPrice,
-            { from: userA }
+            { from: creator }
         );
 
         const numOrders = await oml.myOrdersCount.call(userA);
@@ -51,17 +307,27 @@ contract("OrderManagerLogic", accounts => {
 
     it("Check that the previously created order is stored correctly in OML contract", async () => {
         const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
+        const {
+            creator,
+            recipient,
+            srcToken,
+            destToken,
+            srcQty,
+            numTradesLeft,
+            minBlockInterval,
+            maxGasPrice
+        } = tokenToTokenNewOrder;
         const expectedOrder = {
             orderId: new BN(0).toString(),
-            creator: userA,
-            recipient: userB,
-            srcToken: tokenOne.address,
-            destToken: tokenTwo.address,
-            srcQty: new BN(1000).mul(new BN(10).pow(new BN(6))).toString(),
-            numTradesLeft: new BN(1).toString(),
-            minBlockInterval: new BN(8).toString(),
+            creator: creator,
+            recipient: recipient,
+            srcToken: srcToken,
+            destToken: destToken,
+            srcQty: srcQty.toString(),
+            numTradesLeft: numTradesLeft.toString(),
+            minBlockInterval: minBlockInterval.toString(),
             lastBlockNumber: await web3.eth.getBlockNumber(),
-            maxGasPrice: new BN(10).toString(),
+            maxGasPrice: maxGasPrice.toString(),
             active: true
         };
         const globalOrder = await oml.allOrders.call(orderId);
@@ -142,10 +408,7 @@ contract("OrderManagerLogic", accounts => {
         try {
             await oml.deactivateOrder(orderId, { from: userA });
         } catch (err) {
-            assert(
-                false,
-                `Expected no error, got ${err} instead!`
-            )
+            assert(false, `Expected no error, got ${err} instead!`);
         }
         const order = await oml.myOrders.call(userA, orderId);
         assert.isFalse(
@@ -187,10 +450,7 @@ contract("OrderManagerLogic", accounts => {
         try {
             await oml.reactivateOrder(orderId, { from: userA });
         } catch (err) {
-            assert(
-                false,
-                `Expected no error, got ${err} instead!`
-            );
+            assert(false, `Expected no error, got ${err} instead!`);
         }
         const order = await oml.myOrders.call(userA, orderId);
         assert.isTrue(
@@ -236,10 +496,7 @@ contract("OrderManagerLogic", accounts => {
                 from: userA
             });
         } catch (err) {
-            assert(
-                false,
-                `Expected no error, got ${err} instead!`
-            );
+            assert(false, `Expected no error, got ${err} instead!`);
         }
         const allowance = await tokenOne.allowance.call(userA, oml.address);
         assert.equal(
@@ -254,14 +511,27 @@ contract("OrderManagerLogic", accounts => {
         try {
             await oml.triggerTrade(orderId, { from: admin });
         } catch (err) {
-            assert(
-                false,
-                `Expected no error, got ${err} instead!`
-            );
+            assert(false, `Expected no error, got ${err} instead!`);
         }
     });
 
-    
+    it("Token to token order can be updated", async () => {
+        
+    });
+
+    it("Check that the previously created order is stored correctly in OML contract", async () => {
+        
+    });
+
+    it("Trade cannot be triggered if minTradesLeft is 0", async () => {
+        // Give allowance
+
+        // perform a trade
+
+        // give allowance again?
+
+        // Try to trade <- this should fail
+    });
 
     /* it("Token to eth order can be created", async () => {
         const recipient = userA;

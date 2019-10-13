@@ -37,7 +37,7 @@ module.exports = async (deployer, network, accounts) => {
   const Admin = accounts[0];
   const UserA = accounts[1];
   const UserB = accounts[2];
-  const UserC = accounts[3];
+  const UserD = accounts[4];
 
   // Get deployed instance
   const TokenOneInstance = await TestTokenOne.at(TestTokenOne.address);
@@ -91,9 +91,9 @@ module.exports = async (deployer, network, accounts) => {
   // Transfer ETH to OML
   txEth(
     await web3.eth.sendTransaction({
-      from: UserC,
+      from: UserD,
       value: web3.utils.toWei(new BN(10).pow(new BN(7)), "Ether")
     }),
-    "Sending 10,000,000 ETH to OML from UserC"
+    "Sending 10,000,000 ETH to OML from UserD"
   );
 };
