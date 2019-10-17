@@ -2,11 +2,12 @@ Considerations
 - What if I tried to DCA and it failed? Solution: Monitor price on Kyber before you broadcast and you only take gas from enduser if the trade passes
 - if min block order is too low, I have to limit how frequent I check or I will self ddos my server.
 - Only trigger trade if current gas price is < maxGasPrice because we can only deduct at most maxGasPrice from user.
+- If I let users specify minConversionRate, it is more flexibility for the user but it also means that there is a higher chance that if I trigger order, the trade will fail
+- Think we can just do token to token (use WETH) because it makes the contract easier to read.
 
-ToDo
+To Do
 - Split token to token trades into 2. Deduct gas from the ETH component. 
 - Create OrderManagerStorage contract
-- function to change KNP address.
 - add min conversion rate to order? <- checks that rate is better than minConversionRate or it wont trigger.
 - create checklist of tasks to do. 
 

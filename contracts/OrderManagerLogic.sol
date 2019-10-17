@@ -196,10 +196,6 @@ contract OrderManagerLogic is Withdrawable {
         totalGasCosts.add(initialGas.sub(remainingGas));                      
         numTradesCompleted.add(1);
     }
-
-    function calculateAverageGas() public view returns (uint) {
-        return totalGasCosts.div(numTradesCompleted);
-    }
     
     function updateOrder(
         uint _orderId,
@@ -274,8 +270,11 @@ contract OrderManagerLogic is Withdrawable {
         emit OrderDeactivated(_orderId, msg.sender);
     }
 
-    // Create function to calculate average gas
+    // Create function to calculate average gas, need to test
     // https://ethereum.stackexchange.com/questions/48331/show-gas-used-in-solidity
+    function calculateAverageGas() public view returns (uint) {
+        return totalGasCosts.div(numTradesCompleted);
+    }
 
     /********************************************************/
     /* KyberNetworkProxy constants, variables and functions */
@@ -300,7 +299,23 @@ contract OrderManagerLogic is Withdrawable {
         uint destQty
     );
 
+    event UpdateKNP(
+        address indexed KyberNetworkProxyAddress
+    );
+
     /* Functions */
+    /**
+     * @dev Update KyberNetworkProxy contract address
+     * @param _kyberNetworkProxyContract New KyberNetwokrProxy contract address
+     */
+    function updateKNPAddress(
+        KyberNetworkProxyInterface _kyberNetworkProxyContract
+    ) public onlyAdmin {
+        require(address(_kyberNetworkProxyContract) != address(0));
+        kyberNetworkProxyContract = _kyberNetworkProxyContract;
+        emit UpdateKNP(address(kyberNetworkProxyContract));
+    }
+
     /**
      * @dev Swap the user's ERC20 token to another ERC20 token / ETH
      * @param _creator creator of the order
@@ -389,7 +404,7 @@ contract OrderManagerLogic is Withdrawable {
     //     uint destQty;
 
     //     // Check that the token transferFrom has succeeded
-    //     _srcToken.safeTransferFrom(msg.sender, address(this), _srcQty);
+    //     _srcToken.safeTransferFrom(_creator, address(this), _srcQty);
 
     //     // Mitigate ERC20 Approve front-running attack, by initially setting
     //     // allowance to 0
@@ -422,44 +437,6 @@ contract OrderManagerLogic is Withdrawable {
     // }
 
     // /**
-    //  * @dev Swap the user's ETH to ERC20 token
-    //  * @param _creator creator of the order
-    //  * @param _destToken destination token contract address
-    //  * @param _destAddress address to send dca-ed tokens to
-    //  */
-    // function swapEthToToken(
-    //     address _creator,
-    //     address payable _destAddress,
-    //     ERC20Detailed _destToken
-    // ) public payable {
-    //     require(msg.value != 0, "Transaction has no Eth!");
-    //     uint minConversionRate;
-    //     uint destQty;
-
-    //     // Get the minimum conversion rate
-    //     (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(
-    //         ETH_TOKEN_ADDRESS,
-    //         _destToken,
-    //         msg.value
-    //     );
-
-    //     // Swap the ETH to ERC20 token and send to destination address
-    //     destQty = kyberNetworkProxyContract.tradeWithHint.value(msg.value)(
-    //         ETH_TOKEN_ADDRESS,
-    //         msg.value,
-    //         _destToken,
-    //         _destAddress,
-    //         MAX_QTY,
-    //         minConversionRate,
-    //         WALLET_ID,
-    //         HINT
-    //     );
-
-    //     // Log the event
-    //     emit Trade(_creator, _destAddress, ETH_TOKEN_ADDRESS, _destToken, msg.value, destQty);
-    // }
-
-    // /**
     //  * @dev Swap the user's ERC20 token to ETH
     //  * @param _creator creator of the order
     //  * @param _srcToken source token contract address
@@ -476,7 +453,7 @@ contract OrderManagerLogic is Withdrawable {
     //     uint destQty;
 
     //     // Check that the token transferFrom has succeeded
-    //     _srcToken.safeTransferFrom(msg.sender, address(this), _srcQty);
+    //     _srcToken.safeTransferFrom(_creator, address(this), _srcQty);
 
     //     // Mitigate ERC20 Approve front-running attack, by initially setting
     //     // allowance to 0
