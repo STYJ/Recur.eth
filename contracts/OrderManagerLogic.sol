@@ -169,20 +169,13 @@ contract OrderManagerLogic is Withdrawable {
 
         // Check that allowance is sufficient
         require(order.srcToken.allowance(
-            order.creator, address(this)) > order.srcQty,
-            "Insufficient token allowance!"
-        );
-
-        // Check that balance is sufficient
-        require(order.srcToken.allowance(
-            order.creator, address(this)) > order.srcQty,
+            order.creator, address(this)) >= order.srcQty,
             "Insufficient token allowance!"
         );
 
         // Update numTradesLeft and lastBlockNumber
         allOrders[_orderId].numTradesLeft --;
         allOrders[_orderId].lastBlockNumber = block.number;
-
 
         // Check user balance and execute trade the trade?
         if(order.srcToken != ETH_TOKEN_ADDRESS && order.destToken != ETH_TOKEN_ADDRESS) {
