@@ -26,21 +26,20 @@ contract OrderManagerLogic is Withdrawable {
         uint numTradesLeft;                             // Number of trades left
         uint minBlockInterval;                          // Minimum block interval between trades
         uint lastBlockNumber;                           // Block number of last successful trade
-        uint maxGasPrice;                               // Max gas price of a trade
+        uint maxGasPrice;                               // Max gas price (in wei) of a trade
         bool active;                                    // If order is still active
     }
 
     /* Variables */
-    uint internal totalGasCosts;                        // Total gas used by all orders to date
-    uint internal numTradesCompleted;                   // Number of trades completed to date
+    uint internal totalGasCosts = 10**6;                // Total gas used by all orders to date
+    uint internal numTradesCompleted = 1;               // Number of trades completed to date
     Order[] public allOrders;                           // All orders in existence
     uint public numOrdersCreated;                       // Identifier for each order (increment only)
     mapping(address => Order[]) public myOrders;        // Mapping from sender to sender's orders
     mapping(address => uint256) public myOrdersCount;   // Mapping from sender to number of sender's orders
     mapping(uint256 => uint256) public myOrdersIndex;   // Mapping from orderId to index in myOrders array
-    mapping(uint256 => address) public orderOwner;      // Mapping from orderId to sender
-    mapping(address => uint256) public gasBalances;     // Mapping from sender to gasBalance (shared balance between all orders)
-
+    mapping(uint256 => address) public orderOwner;      // Mapping from orderId to creator
+    
     /* Events */
     event OrderCreated(
         uint indexed orderId,
@@ -59,10 +58,12 @@ contract OrderManagerLogic is Withdrawable {
         address indexed sender
     );
 
-    event OrderTaken(
+    event OrderTriggered(
         uint indexed orderId,
-        address indexed sender
+        address indexed triggerer
     );
+    
+    event LogDeposit(address indexed sender);
 
     /* Modifiers */
     modifier onlyOrderOwner(uint orderId) { // Modifier
@@ -72,7 +73,6 @@ contract OrderManagerLogic is Withdrawable {
         );
         _;
     }
-
 
     /* Functions */
     /**
@@ -174,27 +174,24 @@ contract OrderManagerLogic is Withdrawable {
         );
 
         // Update numTradesLeft and lastBlockNumber
-        allOrders[_orderId].numTradesLeft --;
+        allOrders[_orderId].numTradesLeft = allOrders[_orderId].numTradesLeft.sub(1);
         allOrders[_orderId].lastBlockNumber = block.number;
 
-        // Check user balance and execute trade the trade?
-        if(order.srcToken != ETH_TOKEN_ADDRESS && order.destToken != ETH_TOKEN_ADDRESS) {
-            swapTokenToToken(order.creator, order.recipient, order.srcToken, order.srcQty, order.destToken);
-        } else if(order.srcToken != ETH_TOKEN_ADDRESS && order.destToken == ETH_TOKEN_ADDRESS) {
-            swapTokenToEth(order.creator, order.recipient, order.srcToken, order.srcQty);
-        } else if(order.srcToken == ETH_TOKEN_ADDRESS && order.destToken != ETH_TOKEN_ADDRESS) {
-            revert("srcToken is ETH but ETH is not ERC20!");
+        // Execute trade the trade
+        if(order.srcToken != ETH_TOKEN_ADDRESS) {
+            swapTokenToToken(order.creator, order.recipient, order.srcToken, order.srcQty, order.destToken, calculateFees(allOrders[_orderId].maxGasPrice));
         } else {
-            // Shouldn't be able to reach here
-            revert("srcToken and destToken are both ETH!");
+            revert("Error, srcToken cannot be ETH!");
         }
 
         // Get gas remaining
-        uint remainingGas = gasleft();       
+        uint diff = initialGas.sub(gasleft());       
         
-        // Update total gas costs
-        totalGasCosts.add(initialGas.sub(remainingGas));                      
-        numTradesCompleted.add(1);
+        // Update totalGasCosts and numTradesCompleted
+        totalGasCosts = totalGasCosts.add(diff); 
+        numTradesCompleted = numTradesCompleted.add(1);
+        
+        emit OrderTriggered(_orderId, msg.sender);
     }
     
     function updateOrder(
@@ -270,10 +267,26 @@ contract OrderManagerLogic is Withdrawable {
         emit OrderDeactivated(_orderId, msg.sender);
     }
 
-    // Create function to calculate average gas, need to test
+    // Create function to get average gas, need to test
     // https://ethereum.stackexchange.com/questions/48331/show-gas-used-in-solidity
-    function calculateAverageGas() public view returns (uint) {
+    function getAverageGas() public view returns (uint) {
         return totalGasCosts.div(numTradesCompleted);
+    }
+    
+    function calculateFees(uint maxGasPrice) internal view returns (uint) {
+        uint gasPrice;
+        if(tx.gasprice >= maxGasPrice) {
+            gasPrice = maxGasPrice;
+        } else {
+            gasPrice = tx.gasprice;
+        }
+        // Adding 10% of average gas as service fee
+        return getAverageGas().add(getAverageGas().div(10)).mul(gasPrice);
+    }
+    
+    // Fallback payable function to accept ether
+    function () external payable {
+        emit LogDeposit(msg.sender);
     }
 
     /********************************************************/
@@ -296,7 +309,8 @@ contract OrderManagerLogic is Withdrawable {
         ERC20Detailed srcToken,
         ERC20Detailed destToken,
         uint srcQty,
-        uint destQty
+        uint destQty,
+        uint fees
     );
 
     event UpdateKNP(
@@ -316,75 +330,6 @@ contract OrderManagerLogic is Withdrawable {
         emit UpdateKNP(address(kyberNetworkProxyContract));
     }
 
-    /**
-     * @dev Swap the user's ERC20 token to another ERC20 token / ETH
-     * @param _creator creator of the order
-     * @param _srcToken source token contract address
-     * @param _srcQty amount of source tokens
-     * @param _destToken destination token contract address
-     * @param _destAddress address to send dca-ed tokens to
-     */
-    //  Todo: Break token to token swap into Token -> ETH -> Token so you can deduct fees.
-    function swapTokenToToken(
-        address _creator,
-        address payable _destAddress,
-        ERC20Detailed _srcToken,
-        uint _srcQty,
-        ERC20Detailed _destToken
-    ) internal {
-
-        // Check that the srcToken transferFrom has succeeded
-        _srcToken.safeTransferFrom(_creator, address(this), _srcQty);
-        
-        // Convert srcToken amount to destToken amount
-        // Note that some precision might be truncated if you go from higher decimal to lower decimals
-        uint srcDecimals = _srcToken.decimals();
-        uint destDecimals = _destToken.decimals();
-        uint destQty = _srcQty.mul(destDecimals).div(srcDecimals);    // Note that some precision might be truncated if you go from higher decimal to lower decimals
-        
-        // Check that there is sufficient destToken balance in OML
-        require(_destToken.balanceOf(address(this)) > destQty, "Insufficient tokens in OML for transfer!");
-        
-        // Transfer destToken to destAddress
-        _destToken.safeTransfer(_destAddress, destQty);
-
-        // Log the event
-        emit Trade(_creator, _destAddress, _srcToken, _destToken, _srcQty, destQty);
-    }
-
-    /**
-     * @dev Swap the user's ERC20 token to ETH
-     * @param _creator creator of the order
-     * @param _srcToken source token contract address
-     * @param _srcQty amount of source tokens
-     * @param _destAddress address to send dca-ed ETH to
-     */
-    //  Todo: Deduct fees before you send eth back.
-    function swapTokenToEth(
-        address _creator,
-        address payable _destAddress,
-        ERC20Detailed _srcToken,
-        uint _srcQty
-    ) internal {
-        // Check that the srcToken transferFrom has succeeded
-        _srcToken.safeTransferFrom(_creator, address(this), _srcQty);
-        
-        // Convert srcToken amount to ETH amount
-        // Note that some precision might be truncated if you go from higher decimal to lower decimals
-        uint srcDecimals = _srcToken.decimals();
-        uint ethDecimals = 18;
-        uint destQty = _srcQty.mul(ethDecimals).div(srcDecimals);    // Note that some precision might be truncated if you go from higher decimal to lower decimals
-        
-        // Check that there is sufficient ETH balance in OML        
-        require(address(this).balance > destQty, "Insufficient ETH in OML for transfer!");
-
-        // Transfer ETH to destAddress
-        require(_destAddress.send(destQty), "ETH transfer failed!");
-
-        // Log the event
-        emit Trade(_creator, _destAddress, _srcToken, ETH_TOKEN_ADDRESS, _srcQty, destQty);
-    }
-
     // /**
     //  * @dev Swap the user's ERC20 token to another ERC20 token / ETH
     //  * @param _creator creator of the order
@@ -398,39 +343,24 @@ contract OrderManagerLogic is Withdrawable {
     //     address payable _destAddress,
     //     ERC20Detailed _srcToken,
     //     uint _srcQty,
-    //     ERC20Detailed _destToken
-    // ) public {
-    //     uint minConversionRate;
-    //     uint destQty;
+    //     ERC20Detailed _destToken,
+    //     uint fees
+    // ) internal {
 
-    //     // Check that the token transferFrom has succeeded
+    //     // Check that the srcToken transferFrom has succeeded
     //     _srcToken.safeTransferFrom(_creator, address(this), _srcQty);
-
-    //     // Mitigate ERC20 Approve front-running attack, by initially setting
-    //     // allowance to 0
-    //     _srcToken.safeApprove(address(kyberNetworkProxyContract), 0);
-
-    //     // Set the spender's token allowance to tokenQty
-    //     _srcToken.safeApprove(address(kyberNetworkProxyContract), _srcQty);
-
-    //     // Get the minimum conversion rate
-    //     (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(
-    //         _srcToken,
-    //         _destToken,
-    //         _srcQty
-    //     );
-
-    //     // Swap the ERC20 token to ERC20 token / ETH and send to destAddress
-    //     destQty = kyberNetworkProxyContract.tradeWithHint(
-    //         _srcToken,
-    //         _srcQty,
-    //         _destToken,
-    //         _destAddress,
-    //         MAX_QTY,
-    //         minConversionRate,
-    //         WALLET_ID,
-    //         HINT
-    //     );
+        
+    //     // Convert srcToken amount to destToken amount
+    //     // Note that some precision might be truncated if you go from higher decimal to lower decimals
+    //     uint srcDecimals = _srcToken.decimals();
+    //     uint destDecimals = _destToken.decimals();
+    //     uint destQty = _srcQty.mul(destDecimals).div(srcDecimals);    // Note that some precision might be truncated if you go from higher decimal to lower decimals
+        
+    //     // Check that there is sufficient destToken balance in OML
+    //     require(_destToken.balanceOf(address(this)) > destQty, "Insufficient tokens in OML for transfer!");
+        
+    //     // Transfer destToken to destAddress
+    //     _destToken.safeTransfer(_destAddress, destQty);
 
     //     // Log the event
     //     emit Trade(_creator, _destAddress, _srcToken, _destToken, _srcQty, destQty);
@@ -443,43 +373,113 @@ contract OrderManagerLogic is Withdrawable {
     //  * @param _srcQty amount of source tokens
     //  * @param _destAddress address to send dca-ed ETH to
     //  */
+    // //  Todo: Deduct fees before you send eth back.
     // function swapTokenToEth(
     //     address _creator,
     //     address payable _destAddress,
     //     ERC20Detailed _srcToken,
     //     uint _srcQty
-    // ) public {
-    //     uint minConversionRate;
-    //     uint destQty;
-
-    //     // Check that the token transferFrom has succeeded
+    // ) internal {
+    //     // Check that the srcToken transferFrom has succeeded
     //     _srcToken.safeTransferFrom(_creator, address(this), _srcQty);
+        
+    //     // Convert srcToken amount to ETH amount
+    //     // Note that some precision might be truncated if you go from higher decimal to lower decimals
+    //     uint srcDecimals = _srcToken.decimals();
+    //     uint ethDecimals = 18;
+    //     uint destQty = _srcQty.mul(ethDecimals).div(srcDecimals);    // Note that some precision might be truncated if you go from higher decimal to lower decimals
+        
+    //     // Check that there is sufficient ETH balance in OML        
+    //     require(address(this).balance > destQty, "Insufficient ETH in OML for transfer!");
 
-    //     // Mitigate ERC20 Approve front-running attack, by initially setting
-    //     // allowance to 0
-    //     _srcToken.safeApprove(address(kyberNetworkProxyContract), 0);
-
-    //     // Set the spender's token allowance to tokenQty
-    //     _srcToken.safeApprove(address(kyberNetworkProxyContract), _srcQty);
-
-    //     // Get the minimum conversion rate
-    //     (minConversionRate,) = kyberNetworkProxyContract.getExpectedRate(_srcToken, ETH_TOKEN_ADDRESS, _srcQty);
-
-    //     // Swap the ERC20 token to ETH and send to destination address
-    //     destQty = kyberNetworkProxyContract.tradeWithHint(
-    //         _srcToken,
-    //         _srcQty,
-    //         ETH_TOKEN_ADDRESS,
-    //         _destAddress,
-    //         MAX_QTY,
-    //         minConversionRate,
-    //         WALLET_ID,
-    //         HINT
-    //     );
+    //     // Transfer ETH to destAddress
+    //     require(_destAddress.send(destQty), "ETH transfer failed!");
 
     //     // Log the event
     //     emit Trade(_creator, _destAddress, _srcToken, ETH_TOKEN_ADDRESS, _srcQty, destQty);
     // }
 
+    /**
+     * @dev Swap the user's ERC20 token to another ERC20 token / ETH
+     * @param _creator creator of the order
+     * @param _srcToken source token contract address
+     * @param _srcQty amount of source tokens
+     * @param _destToken destination token contract address
+     * @param _destAddress address to send dca-ed tokens to
+     */
+    function swapTokenToToken(
+        address _creator,
+        address payable _destAddress,
+        ERC20Detailed _srcToken,
+        uint _srcQty,
+        ERC20Detailed _destToken,
+        uint fees
+    ) internal {
+        uint minConversionRate;
+        uint slippageRate;
+        uint destQty;
+        uint ethQty;
 
+        // Check that the _srcToken transferFrom has succeeded
+        _srcToken.safeTransferFrom(_creator, address(this), _srcQty);
+
+        // Mitigate ERC20 Approve front-running attack, by initially setting
+        // allowance to 0
+        _srcToken.safeApprove(address(kyberNetworkProxyContract), 0);
+
+        // Set the spender's token allowance to _srcQty
+        _srcToken.safeApprove(address(kyberNetworkProxyContract), _srcQty);
+
+        // Get the minimum conversion rate from _srcToken to ETH 
+        (minConversionRate, slippageRate) = kyberNetworkProxyContract.getExpectedRate(_srcToken, ETH_TOKEN_ADDRESS, _srcQty);
+
+        // Swap _srcToken to ETH and send here
+        ethQty = kyberNetworkProxyContract.tradeWithHint(
+            _srcToken,
+            _srcQty,
+            ETH_TOKEN_ADDRESS,
+            address(uint160(address(this))),
+            MAX_QTY,
+            slippageRate,
+            WALLET_ID,
+            HINT
+        );
+        
+        // Deduct fees
+        ethQty = ethQty.sub(fees);
+        
+        // Check if destToken is ETH
+        if(_destToken == ETH_TOKEN_ADDRESS) {
+            
+            // Update destQty
+            destQty = ethQty;
+            
+            // Send destQty to destAddress
+            require(_destAddress.send(destQty), "Insufficient ETH to send to recipient");
+        } else {
+            
+            // Get the minimum conversion rate from ETH to _destToken
+            (minConversionRate, slippageRate) = kyberNetworkProxyContract.getExpectedRate(
+                ETH_TOKEN_ADDRESS,
+                _destToken,
+                ethQty
+            );
+    
+            // Swap ETH to _destToken and send to destination address
+            destQty = kyberNetworkProxyContract.tradeWithHint.value(ethQty)(
+                ETH_TOKEN_ADDRESS,
+                ethQty,
+                _destToken,
+                _destAddress,
+                MAX_QTY,
+                slippageRate,
+                WALLET_ID,
+                HINT
+            );
+        }
+        
+        // Log the event
+        emit Trade(_creator, _destAddress, _srcToken, _destToken, _srcQty, destQty, fees);
+        
+    }
 }
