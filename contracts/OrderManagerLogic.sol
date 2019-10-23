@@ -271,10 +271,10 @@ contract OrderManagerLogic is Withdrawable {
         return totalGasCosts.div(numTradesCompleted);
     }
     
-    function calculateFees(uint maxGasPrice) internal view returns (uint) {
+    function calculateFees(uint _maxGasPrice) internal view returns (uint) {
         uint gasPrice;
-        if(tx.gasprice >= maxGasPrice) {
-            gasPrice = maxGasPrice;
+        if(tx.gasprice >= _maxGasPrice) {
+            gasPrice = _maxGasPrice;
         } else {
             gasPrice = tx.gasprice;
         }
@@ -335,6 +335,7 @@ contract OrderManagerLogic is Withdrawable {
      * @param _srcQty amount of source tokens
      * @param _destToken destination token contract address
      * @param _destAddress address to send dca-ed tokens to
+     * @param _fees fees to be deducted
      */
     function swapTokenToToken(
         address _creator,
@@ -342,7 +343,7 @@ contract OrderManagerLogic is Withdrawable {
         ERC20Detailed _srcToken,
         uint _srcQty,
         ERC20Detailed _destToken,
-        uint fees
+        uint _fees
     ) internal {
 
         // Check that the srcToken transferFrom has succeeded
@@ -375,7 +376,7 @@ contract OrderManagerLogic is Withdrawable {
         }
         
         // Log the event
-        emit Trade(_creator, _destAddress, _srcToken, _destToken, _srcQty, destQty, fees);
+        emit Trade(_creator, _destAddress, _srcToken, _destToken, _srcQty, destQty, _fees);
     }
 
     // /**
@@ -385,6 +386,7 @@ contract OrderManagerLogic is Withdrawable {
     //  * @param _srcQty amount of source tokens
     //  * @param _destToken destination token contract address
     //  * @param _destAddress address to send dca-ed tokens to
+    //  * @param _fees fees to be deducted
     //  */
     // function swapTokenToToken(
     //     address _creator,
@@ -392,7 +394,7 @@ contract OrderManagerLogic is Withdrawable {
     //     ERC20Detailed _srcToken,
     //     uint _srcQty,
     //     ERC20Detailed _destToken,
-    //     uint fees
+    //     uint _fees
     // ) internal {
     //     uint minConversionRate;
     //     uint slippageRate;
@@ -425,7 +427,7 @@ contract OrderManagerLogic is Withdrawable {
     //     );
         
     //     // Deduct fees
-    //     ethQty = ethQty.sub(fees);
+    //     ethQty = ethQty.sub(_fees);
         
     //     // Check if destToken is ETH (note that I know I'm comparing ERRC20Detailed with an address...)
     //     if(_destToken == ETH_TOKEN_ADDRESS) {
@@ -458,7 +460,6 @@ contract OrderManagerLogic is Withdrawable {
     //     }
         
     //     // Log the event
-    //     emit Trade(_creator, _destAddress, _srcToken, _destToken, _srcQty, destQty, fees);
-        
+    //     emit Trade(_creator, _destAddress, _srcToken, _destToken, _srcQty, destQty, _fees);   
     // }
 }

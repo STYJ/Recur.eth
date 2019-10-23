@@ -6,7 +6,7 @@ Considerations
 - Think we can just do token to token (use WETH) because it makes the contract easier to read.
 
 To Do
-- Create OrderManagerStorage contract
+- Create OrderManagerStorage and OrderManagerProxy contract
 - add comments to all functions
 - should i create tests for fees for my mock contracts?
 
