@@ -6,10 +6,9 @@ Considerations
 - Think we can just do token to token (use WETH) because it makes the contract easier to read.
 
 To Do
-- Split token to token trades into 2. Deduct gas from the ETH component. (done for actual swap function, mock function dont have yet)
-- add require statement for checking srcToken != ETH address instead of using if statement? <- add when creating / updating order
 - Create OrderManagerStorage contract
 - add comments to all functions
+- should i create tests for fees for my mock contracts?
 
 others
 - add min conversion rate to order? <- checks that rate is better than minConversionRate or it wont trigger.

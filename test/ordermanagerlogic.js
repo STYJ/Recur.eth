@@ -127,6 +127,39 @@ contract("OrderManagerLogic", accounts => {
         }
     });
 
+    it("Cannot create order if srcToken is ETH", async () => {
+        const {
+            creator,
+            recipient,
+            destToken,
+            srcQty,
+            numTradesLeft,
+            minBlockInterval,
+            maxGasPrice
+        } = tokenToTokenNewOrder;
+
+        try {
+            await oml.createOrder(
+                recipient,
+                EthTokenAddress,
+                destToken,
+                srcQty,
+                numTradesLeft,
+                minBlockInterval,
+                maxGasPrice,
+                { from: creator }
+            );
+            assert.fail(
+                `Order was created even though srcToken is ${EthTokenAddress}!`
+            );
+        } catch (err) {
+            assert(
+                Helper.isRevertErrorMessage(err),
+                `Expected revert, got ${err} instead!`
+            );
+        }
+    });
+
     it("Cannot create order if destToken is address(0)", async () => {
         const {
             creator,
@@ -630,6 +663,41 @@ contract("OrderManagerLogic", accounts => {
             );
             assert.fail(
                 `Order was updated even though srcToken is ${NullAddress}!`
+            );
+        } catch (err) {
+            assert(
+                Helper.isRevertErrorMessage(err),
+                `Expected revert, got ${err} instead!`
+            );
+        }
+    });
+
+    it("Cannot update order if srcToken is ETH", async () => {
+        const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
+        const {
+            creator,
+            recipient,
+            destToken,
+            srcQty,
+            numTradesLeft,
+            minBlockInterval,
+            maxGasPrice
+        } = tokenToTokenUpdatedOrder;
+
+        try {
+            await oml.updateOrder(
+                orderId,
+                recipient,
+                EthTokenAddress,
+                destToken,
+                srcQty,
+                numTradesLeft,
+                minBlockInterval,
+                maxGasPrice,
+                { from: creator }
+            );
+            assert.fail(
+                `Order was updated even though srcToken is ${EthTokenAddress}!`
             );
         } catch (err) {
             assert(
