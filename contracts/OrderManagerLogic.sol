@@ -41,24 +41,24 @@ contract OrderManagerLogic is Withdrawable {
     mapping(uint256 => address) public orderOwner;      // Mapping from orderId to creator
     
     /* Events */
-    event OrderCreated(
+    event CreateOrder(
         uint indexed orderId,
         address indexed sender
     );
 
-    event OrderUpdated(uint indexed orderId);
+    event UpdateOrder(uint indexed orderId);
 
-    event OrderReactivated(
+    event ReactivateOrder(
         uint indexed orderId,
         address indexed sender
     );
 
-    event OrderDeactivated(
+    event DeactivateOrder(
         uint indexed orderId,
         address indexed sender
     );
 
-    event OrderTriggered(
+    event TriggerOrder(
         uint indexed orderId,
         address indexed triggerer
     );
@@ -78,14 +78,14 @@ contract OrderManagerLogic is Withdrawable {
     /**
      * @dev Contract constructor
      * @param _kyberNetworkProxyContract KyberNetworkProxy contract address
-     * @param _admin Admin address for the contract
+     * @param _admin Admin address for the OrderManagerLogic contract
      */
     constructor (
         KyberNetworkProxyInterface _kyberNetworkProxyContract,
         address _admin
     ) public Withdrawable(_admin) {
-        require(_admin != address(0));
-        require(address(_kyberNetworkProxyContract) != address(0));
+        require(_admin != address(0), "Admin cannot be the null address!");
+        require(address(_kyberNetworkProxyContract) != address(0), "KyberNetworkProxy contract address cannot be the null address!");
         kyberNetworkProxyContract = _kyberNetworkProxyContract;
     }
 
@@ -142,7 +142,7 @@ contract OrderManagerLogic is Withdrawable {
         numOrdersCreated ++;
 
         // Log the order creation event
-        emit OrderCreated(orderId, msg.sender);
+        emit CreateOrder(orderId, msg.sender);
         
         // Return the orderId
         return orderId;
@@ -188,7 +188,7 @@ contract OrderManagerLogic is Withdrawable {
         totalGasCosts = totalGasCosts.add(diff); 
         numTradesCompleted = numTradesCompleted.add(1);
         
-        emit OrderTriggered(_orderId, msg.sender);
+        emit TriggerOrder(_orderId, msg.sender);
     }
     
     function updateOrder(
@@ -234,7 +234,7 @@ contract OrderManagerLogic is Withdrawable {
         myOrders[msg.sender][index] = newOrder;
 
         // Log the order updated event
-        emit OrderUpdated(_orderId);
+        emit UpdateOrder(_orderId);
     }
 
     function reactivateOrder(uint _orderId) public onlyOrderOwner(_orderId) {
@@ -248,7 +248,7 @@ contract OrderManagerLogic is Withdrawable {
         myOrders[msg.sender][index].active = true;
 
         // Log the order reactivation event
-        emit OrderReactivated(_orderId, msg.sender);
+        emit ReactivateOrder(_orderId, msg.sender);
     }
 
     function deactivateOrder(uint _orderId) public onlyOrderOwner(_orderId) {
@@ -262,7 +262,7 @@ contract OrderManagerLogic is Withdrawable {
         myOrders[msg.sender][index].active = false;
 
         // Log the order deactivation event
-        emit OrderDeactivated(_orderId, msg.sender);
+        emit DeactivateOrder(_orderId, msg.sender);
     }
 
     // Create function to get average gas, need to test
@@ -323,7 +323,7 @@ contract OrderManagerLogic is Withdrawable {
     function updateKNPAddress(
         KyberNetworkProxyInterface _kyberNetworkProxyContract
     ) public onlyAdmin {
-        require(address(_kyberNetworkProxyContract) != address(0));
+        require(address(_kyberNetworkProxyContract) != address(0), "KyberNetworkProxy contract address cannot be the null address!");
         kyberNetworkProxyContract = _kyberNetworkProxyContract;
         emit UpdateKNP(address(kyberNetworkProxyContract));
     }

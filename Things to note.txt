@@ -6,12 +6,12 @@ Considerations
 - Think we can just do token to token (use WETH) because it makes the contract easier to read.
 
 To Do
-- Create OrderManagerStorage and OrderManagerProxy contract
+- Create at least OrderManagerStorage contract
 - add comments to all functions
-- should i create tests for fees for my mock contracts?
 
-others
-- add min conversion rate to order? <- checks that rate is better than minConversionRate or it wont trigger.
+Extensions
+- Create OrderManagerProxy contract
+
 
 functions
 - createOrder
