@@ -1,0 +1,48 @@
+Considerations
+- What if I tried to DCA and it failed? Solution: Monitor price on Kyber before you broadcast and you only take gas from enduser if the trade passes
+- if min block order is too low, I have to limit how frequent I check or I will self ddos my server.
+- Only trigger trade if current gas price is < maxGasPrice because we can only deduct at most maxGasPrice from user.
+- If I let users specify minConversionRate, it is more flexibility for the user but it also means that there is a higher chance that if I trigger order, the trade will fail
+- Think we can just do token to token (use WETH) because it makes the contract easier to read.
+
+To Do List
+- Test OMS on remix
+- integrate OMS and OML on ganache cli, update migration scripts
+- fix tests
+- Connect to OrderManagerLogic
+- add comments to all functions
+
+Extensions
+- Create OrderManagerProxy contract
+
+
+functions
+- createOrder
+cannot create order if any conditions fail - done
+can create - done
+is added in sc correctly - done
+
+
+- trigger trade
+cannot trigger if any condition fail - done 
+            re/de activate order - done
+                only owner can do - done
+                sc updated correctly - done
+can trigger if all conditions pass - done
+            order updated accordingly when trade is completed - done
+
+order updated correctly - done
+
+
+gas stored
+
+- update order
+only owner can update - done
+cannot update order if any conditions fail - done
+can update - done 
+is updated in sc correctly - done
+
+
+
+- calculate average gas
+test it out
