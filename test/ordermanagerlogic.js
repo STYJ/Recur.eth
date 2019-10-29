@@ -468,12 +468,12 @@ contract("OrderManagerLogic", accounts => {
         }
     });
 
-    it("Non owner cannot reactivate order", async () => {
+    it("Non owner cannot activate order", async () => {
         const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
         try {
-            await oml.reactivateOrder(orderId, { from: admin });
+            await oml.activateOrder(orderId, { from: admin });
             assert.fail(
-                "Order was reactivated by someone who is not the owner!"
+                "Order was activated by someone who is not the owner!"
             );
         } catch (err) {
             assert(
@@ -483,17 +483,17 @@ contract("OrderManagerLogic", accounts => {
         }
     });
 
-    it("Owner can reactivate order", async () => {
+    it("Owner can activate order", async () => {
         const orderId = (await oml.numOrdersCreated.call()).sub(new BN(1));
         try {
-            await oml.reactivateOrder(orderId, { from: userA });
+            await oml.activateOrder(orderId, { from: userA });
         } catch (err) {
             assert(false, `Expected no error, got ${err} instead!`);
         }
         const order = await oml.myOrders.call(userA, orderId);
         assert.isTrue(
             order["active"],
-            `Order with id ${orderId} failed to reactivate!`
+            `Order with id ${orderId} failed to activate!`
         );
     });
 

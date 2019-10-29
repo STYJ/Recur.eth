@@ -5,8 +5,11 @@ Considerations
 - If I let users specify minConversionRate, it is more flexibility for the user but it also means that there is a higher chance that if I trigger order, the trade will fail
 - Think we can just do token to token (use WETH) because it makes the contract easier to read.
 
-To Do
-- Create at least OrderManagerStorage contract
+To Do List
+- Test OMS on remix
+- integrate OMS and OML on ganache cli, update migration scripts
+- fix tests
+- Connect to OrderManagerLogic
 - add comments to all functions
 
 Extensions

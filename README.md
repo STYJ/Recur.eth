@@ -1,6 +1,6 @@
 # Recur.eth
 
-Recurring purchase of tokens on Ethereum in a permissionless manner. 
+**Project has been discontinued.** Recurring purchase of tokens on Ethereum in a permissionless manner.
 
 ## Installation
 

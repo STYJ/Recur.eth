@@ -48,7 +48,7 @@ contract OrderManagerLogic is Withdrawable {
 
     event UpdateOrder(uint indexed orderId);
 
-    event ReactivateOrder(
+    event ActivateOrder(
         uint indexed orderId,
         address indexed sender
     );
@@ -200,7 +200,7 @@ contract OrderManagerLogic is Withdrawable {
         uint _numTradesLeft,
         uint _minBlockInterval,
         uint _maxGasPrice
-    ) public onlyOrderOwner(_orderId) {
+    ) public onlyOrderOwner(_orderId) returns(bool) {
         require(_recipient != address(0), "Recipient cannot be the null address!");
         require(address(_srcToken) != address(0), "SrcToken cannot be the null address!");
         require(address(_srcToken) != address(ETH_TOKEN_ADDRESS), "SrcToken cannot be the ETH address!");
@@ -235,20 +235,22 @@ contract OrderManagerLogic is Withdrawable {
 
         // Log the order updated event
         emit UpdateOrder(_orderId);
+
+        return true;
     }
 
-    function reactivateOrder(uint _orderId) public onlyOrderOwner(_orderId) {
-        // Reactivate order from allOrders
+    function activateOrder(uint _orderId) public onlyOrderOwner(_orderId) {
+        // Activate order from allOrders
         allOrders[_orderId].active = true;
 
         // Get index of order in myOrders
         uint index = myOrdersIndex[_orderId];
 
-        // Reactivate order in myOrders
+        // Activate order in myOrders
         myOrders[msg.sender][index].active = true;
 
-        // Log the order reactivation event
-        emit ReactivateOrder(_orderId, msg.sender);
+        // Log the order activation event
+        emit ActivateOrder(_orderId, msg.sender);
     }
 
     function deactivateOrder(uint _orderId) public onlyOrderOwner(_orderId) {
